@@ -33,6 +33,7 @@ public class SubmissionServiceImpl implements SubmissionService {
     private final MistakeRepository mistakeRepository;
     private final WeaknessRepository weaknessRepository;
     private final MlAnalysisService mlAnalysisService;
+    private final com.codememory.service.RecommendationService recommendationService;
 
     @Override
     @Transactional
@@ -62,7 +63,12 @@ public class SubmissionServiceImpl implements SubmissionService {
 
         Submission savedSubmission = submissionRepository.save(submission);
 
-        // 5. Mistake Analysis & Longitudinal Weakness Tracking (if failed or explanation provided)
+        // 5. Adaptive Feedback Loop: If accepted, resolve recommendations and boost mastery
+        if (savedSubmission.getResult() == SubmissionResult.ACCEPTED) {
+            recommendationService.processSolvedProblemFeedback(user, problem);
+        }
+
+        // 6. Mistake Analysis & Longitudinal Weakness Tracking (if failed or explanation provided)
         Mistake mistake = null;
         if (savedSubmission.getResult() != SubmissionResult.ACCEPTED || request.getUserExplanation() != null) {
             mistake = recordMistakeAndTrackWeakness(savedSubmission, problem, request.getUserExplanation());
@@ -206,6 +212,7 @@ public class SubmissionServiceImpl implements SubmissionService {
                 user.getId(), concept, category);
 
         LocalDateTime now = LocalDateTime.now();
+        Weakness savedWeakness;
         if (existingWeakness.isPresent()) {
             Weakness weakness = existingWeakness.get();
             weakness.setFrequency(weakness.getFrequency() + 1);
@@ -214,7 +221,7 @@ public class SubmissionServiceImpl implements SubmissionService {
             double currentMastery = (weakness.getMasteryScore() != null) ? weakness.getMasteryScore() : 100.0;
             weakness.setMasteryScore(Math.max(10.0, currentMastery - 5.0));
             weakness.setConfidence(Math.min(0.98, (weakness.getConfidence() != null ? weakness.getConfidence() : 0.8) + 0.05));
-            weaknessRepository.save(weakness);
+            savedWeakness = weaknessRepository.save(weakness);
         } else {
             Weakness newWeakness = Weakness.builder()
                     .user(user)
@@ -226,7 +233,12 @@ public class SubmissionServiceImpl implements SubmissionService {
                     .firstObserved(now)
                     .lastObserved(now)
                     .build();
-            weaknessRepository.save(newWeakness);
+            savedWeakness = weaknessRepository.save(newWeakness);
+        }
+
+        // Trigger adaptive targeted recommendation generation if recurring (frequency >= 2)
+        if (savedWeakness.getFrequency() >= 2) {
+            recommendationService.generateRecommendationsForWeakness(savedWeakness);
         }
     }
 
