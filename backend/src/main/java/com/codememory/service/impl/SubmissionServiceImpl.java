@@ -12,6 +12,9 @@ import com.codememory.service.SubmissionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import com.codememory.dto.ml.MlAnalysisRequest;
+import com.codememory.dto.ml.MlAnalysisResponse;
+import com.codememory.service.MlAnalysisService;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
@@ -29,6 +32,7 @@ public class SubmissionServiceImpl implements SubmissionService {
     private final UserRepository userRepository;
     private final MistakeRepository mistakeRepository;
     private final WeaknessRepository weaknessRepository;
+    private final MlAnalysisService mlAnalysisService;
 
     @Override
     @Transactional
@@ -156,10 +160,28 @@ public class SubmissionServiceImpl implements SubmissionService {
     }
 
     private Mistake recordMistakeAndTrackWeakness(Submission submission, Problem problem, String userExplanation) {
-        MistakeCategory category = classifyMistakeBaseline(submission.getResult(), userExplanation, problem.getTopics());
+        MlAnalysisRequest mlRequest = MlAnalysisRequest.builder()
+                .problemTitle(problem.getTitle())
+                .topic(problem.getTopics())
+                .difficulty(problem.getDifficulty())
+                .result(submission.getResult())
+                .code(submission.getCode())
+                .userExplanation(userExplanation)
+                .build();
 
-        String aiExplanation = generateBaselineExplanation(category, problem.getTitle());
-        double confidence = (userExplanation != null && !userExplanation.isBlank()) ? 0.92 : 0.78;
+        MlAnalysisResponse mlResponse = mlAnalysisService.analyzeAttempt(mlRequest);
+
+        MistakeCategory category = (mlResponse != null && mlResponse.getMistakeCategory() != null)
+                ? mlResponse.getMistakeCategory()
+                : MistakeCategory.WRONG_LOGIC;
+
+        String aiExplanation = (mlResponse != null && mlResponse.getRootCause() != null)
+                ? mlResponse.getRootCause()
+                : "Algorithmic logic failure identified on " + problem.getTitle() + ".";
+
+        double confidence = (mlResponse != null && mlResponse.getConfidence() != null)
+                ? mlResponse.getConfidence()
+                : 0.85;
 
         Mistake mistake = Mistake.builder()
                 .submission(submission)
@@ -175,50 +197,6 @@ public class SubmissionServiceImpl implements SubmissionService {
         updateWeaknessProfile(submission.getUser(), problem, category);
 
         return savedMistake;
-    }
-
-    private MistakeCategory classifyMistakeBaseline(SubmissionResult result, String explanation, List<String> topics) {
-        String exp = (explanation != null) ? explanation.toLowerCase() : "";
-        String topicStr = (topics != null) ? String.join(" ", topics).toLowerCase() : "";
-
-        if (exp.contains("bound") || exp.contains("high = mid") || exp.contains("low = mid") || exp.contains("pointer") || exp.contains("index")) {
-            return MistakeCategory.BOUNDARY_ERROR;
-        }
-        if (exp.contains("off by one") || exp.contains("<= instead of <") || exp.contains("< instead of <=")) {
-            return MistakeCategory.OFF_BY_ONE_ERROR;
-        }
-        if (exp.contains("visit") || exp.contains("cycle") || topicStr.contains("graph")) {
-            return MistakeCategory.GRAPH_VISITED_ERROR;
-        }
-        if (result == SubmissionResult.TIME_LIMIT_EXCEEDED || exp.contains("tle") || exp.contains("nested") || exp.contains("complexity") || exp.contains("slow")) {
-            return MistakeCategory.COMPLEXITY_ERROR;
-        }
-        if (exp.contains("null") || exp.contains("empty") || exp.contains("corner") || exp.contains("edge")) {
-            return MistakeCategory.EDGE_CASE_ERROR;
-        }
-        if (exp.contains("base case") || exp.contains("recursion") || exp.contains("stack overflow")) {
-            return MistakeCategory.RECURSION_BASE_CASE_ERROR;
-        }
-        if (exp.contains("dp") || exp.contains("state") || exp.contains("memo")) {
-            return MistakeCategory.DP_STATE_ERROR;
-        }
-        if (result == SubmissionResult.COMPILE_ERROR || exp.contains("syntax") || exp.contains("type")) {
-            return MistakeCategory.SYNTAX_OR_API_ERROR;
-        }
-        return MistakeCategory.WRONG_LOGIC;
-    }
-
-    private String generateBaselineExplanation(MistakeCategory category, String problemTitle) {
-        return switch (category) {
-            case BOUNDARY_ERROR -> "Detected boundary handling miscalculation while updating pointers on " + problemTitle + ".";
-            case OFF_BY_ONE_ERROR -> "Identified off-by-one indexing offset in loop termination condition.";
-            case GRAPH_VISITED_ERROR -> "Missing or improperly maintained visited-state transition during traversal.";
-            case COMPLEXITY_ERROR -> "Sub-optimal algorithmic complexity exceeded problem time constraints.";
-            case EDGE_CASE_ERROR -> "Failed to properly guard against edge case inputs (e.g. empty, single element, or extreme values).";
-            case RECURSION_BASE_CASE_ERROR -> "Missing or improperly ordered recursion termination base-case.";
-            case DP_STATE_ERROR -> "Sub-problem state definition or recurrence transition relationship misformulation.";
-            default -> "Algorithmic logic failure identified on " + problemTitle + ".";
-        };
     }
 
     private void updateWeaknessProfile(User user, Problem problem, MistakeCategory category) {
