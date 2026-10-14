@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CodeMemory</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body class="dark-mode">
+  <div class="popup-wrapper">
+    <!-- Header -->
+    <header class="header">
+      <div class="logo-group">
+        <span class="logo-emoji">🧠</span>
+        <div>
+          <h1 class="logo-title">CodeMemory</h1>
+          <span class="logo-tag">AI Second Brain</span>
+        </div>
+      </div>
+      <div id="backend-status" class="status-indicator" title="Backend connection status">
+        <span class="dot"></span>
+        <span id="status-text">Backend</span>
+      </div>
+    </header>
+
+    <!-- Active Problem Context -->
+    <section class="context-card">
+      <div class="context-top">
+        <span id="problem-title" class="problem-title">Detecting active problem...</span>
+        <span id="problem-difficulty" class="badge badge-medium">MED</span>
+      </div>
+      <div class="context-bottom">
+        <span id="submission-result" class="result-tag result-failed">WRONG_ANSWER</span>
+        <span id="page-status" class="page-status-text">From active LeetCode tab</span>
+      </div>
+    </section>
+
+    <!-- Mistake Feedback Form -->
+    <form id="mistake-form" class="form-container">
+      <div class="form-section-title">Why do you think this failed?</div>
+
+      <div class="options-grid">
+        <label class="radio-option">
+          <input type="radio" name="reasonCategory" value="Boundary / index issue" checked>
+          <span>Boundary / index issue</span>
+        </label>
+        <label class="radio-option">
+          <input type="radio" name="reasonCategory" value="Wrong logic">
+          <span>Wrong logic</span>
+        </label>
+        <label class="radio-option">
+          <input type="radio" name="reasonCategory" value="Edge case">
+          <span>Edge case</span>
+        </label>
+        <label class="radio-option">
+          <input type="radio" name="reasonCategory" value="Complexity / TLE">
+          <span>Complexity / TLE</span>
+        </label>
+        <label class="radio-option">
+          <input type="radio" name="reasonCategory" value="Didn't understand concept">
+          <span>Didn't understand concept</span>
+        </label>
+        <label class="radio-option">
+          <input type="radio" name="reasonCategory" value="Other">
+          <span>Other</span>
+        </label>
+      </div>
+
+      <div class="input-group">
+        <label for="user-explanation" class="input-label">Explain briefly (Crucial for AI):</label>
+        <textarea 
+          id="user-explanation" 
+          rows="2" 
+          placeholder="e.g. I used high = mid instead of high = mid - 1 causing boundary lock"
+          required
+        ></textarea>
+      </div>
+
+      <button id="btn-analyze" type="submit" class="btn-primary">
+        <span>⚡ Analyze & Remember Mistake</span>
+      </button>
+    </form>
+
+    <!-- AI Verdict Output -->
+    <div id="ai-verdict" class="ai-verdict-box hidden">
+      <div class="verdict-header">
+        <span class="verdict-title">🧠 AI Second Brain Verdict</span>
+        <span id="verdict-confidence" class="confidence-tag">92% Match</span>
+      </div>
+      <div id="verdict-category" class="verdict-category">BOUNDARY_ERROR</div>
+      <p id="verdict-feedback" class="verdict-feedback">Detected high-frequency recurrence matching past binary-search boundary failures.</p>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <button id="btn-open-dashboard" class="btn-link">
+        📊 Open Full Second Brain Dashboard ↗
+      </button>
+    </footer>
+  </div>
+
+  <script type="module" src="popup.js"></script>
+</body>
+</html>
