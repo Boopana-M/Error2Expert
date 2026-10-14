@@ -5,6 +5,14 @@ from .schemas import (
     AttemptAnalysisResponse,
     MistakeClassificationRequest,
     MistakeClassificationResponse,
+    EmbeddingRequest,
+    EmbeddingResponse,
+    SimilarMistakeItem,
+    IndexMistakeRequest,
+    FindSimilarMistakesRequest,
+    FindSimilarMistakesResponse,
+    PatternDetectionRequest,
+    PatternDetectionResponse,
 )
 
 __all__ = [
@@ -14,4 +22,12 @@ __all__ = [
     "AttemptAnalysisResponse",
     "MistakeClassificationRequest",
     "MistakeClassificationResponse",
+    "EmbeddingRequest",
+    "EmbeddingResponse",
+    "SimilarMistakeItem",
+    "IndexMistakeRequest",
+    "FindSimilarMistakesRequest",
+    "FindSimilarMistakesResponse",
+    "PatternDetectionRequest",
+    "PatternDetectionResponse",
 ]

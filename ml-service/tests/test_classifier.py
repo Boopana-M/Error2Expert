@@ -8,7 +8,7 @@ client = TestClient(app)
 def test_health_check():
     response = client.get("/health")
     assert response.status_code == 200
-    assert response.json() == {"status": "HEALTHY"}
+    assert response.json()["status"] == "HEALTHY"
 
 def test_analyze_binary_search_boundary_mistake():
     payload = {

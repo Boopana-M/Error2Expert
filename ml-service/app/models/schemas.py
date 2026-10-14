@@ -57,3 +57,47 @@ class MistakeClassificationResponse(BaseModel):
     confidence: float
     explanation: str
     evidence: List[str] = []
+
+class EmbeddingRequest(BaseModel):
+    text: str = Field(..., description="Text explanation to generate embedding for")
+
+class EmbeddingResponse(BaseModel):
+    embedding: List[float]
+    dimension: int
+
+class SimilarMistakeItem(BaseModel):
+    mistakeId: str
+    text: str
+    category: MistakeCategory
+    similarity: float
+    problemTitle: str
+    topics: List[str] = []
+
+class IndexMistakeRequest(BaseModel):
+    mistakeId: str
+    text: str
+    category: MistakeCategory
+    problemTitle: str
+    topics: List[str] = []
+
+class FindSimilarMistakesRequest(BaseModel):
+    text: str
+    topK: Optional[int] = Field(default=5, description="Number of nearest neighbors to retrieve")
+    threshold: Optional[float] = Field(default=0.70, description="Minimum cosine similarity threshold")
+
+class FindSimilarMistakesResponse(BaseModel):
+    matches: List[SimilarMistakeItem]
+    totalMatches: int
+
+class PatternDetectionRequest(BaseModel):
+    newMistake: str
+    category: MistakeCategory
+    problemTitle: str
+    topics: List[str] = []
+
+class PatternDetectionResponse(BaseModel):
+    recurring: bool
+    recurrenceCount: int
+    crossProblem: bool
+    patternSummary: str
+    matches: List[SimilarMistakeItem] = []
