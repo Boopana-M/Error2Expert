@@ -21,7 +21,7 @@ class PatternDetector:
         matches = self.memory.search_similar(
             query_text=new_mistake_text,
             top_k=8,
-            threshold=0.70
+            threshold=0.65
         )
 
         # Count occurrences in same mistake category or semantic similarity

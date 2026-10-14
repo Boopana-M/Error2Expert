@@ -52,7 +52,7 @@ class FaissVectorMemory:
         self,
         query_text: str,
         top_k: int = 5,
-        threshold: float = 0.70
+        threshold: float = 0.65
     ) -> List[SimilarMistakeItem]:
         """
         Searches FAISS vector store for semantic matches above the similarity threshold.
