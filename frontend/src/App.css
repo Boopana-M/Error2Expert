@@ -739,3 +739,33 @@
 .gap-4 { gap: 16px; }
 .text-xs { font-size: 0.75rem; }
 .text-sm { font-size: 0.875rem; }
+
+.user-profile-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-subtle);
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 0.825rem;
+}
+
+.user-avatar-circle {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #6366f1, #a855f7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.75rem;
+  color: #fff;
+}
+
+.user-name-label {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+

@@ -23,6 +23,10 @@ export default function Navbar({ onOpenSubmissionModal }) {
           <Cpu size={15} className="status-icon-emerald" />
           <span>ML Service: <strong className="text-emerald">Online</strong></span>
         </div>
+        <div className="user-profile-badge" title="Active CodeMemory User">
+          <span className="user-avatar-circle">B</span>
+          <span className="user-name-label">Boopana</span>
+        </div>
         <button
           id="btn-quick-submit"
           onClick={onOpenSubmissionModal}

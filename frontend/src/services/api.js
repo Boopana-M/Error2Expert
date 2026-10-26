@@ -127,11 +127,65 @@ const FALLBACK_DASHBOARD_DATA = {
   }
 };
 
+const ML_API_BASE_URL = import.meta.env.VITE_ML_API_URL || 'http://localhost:8000';
+
+function getAuthHeaders() {
+  const token = localStorage.getItem('codememory_token');
+  const headers = { 'Content-Type': 'application/json' };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return headers;
+}
+
 export const api = {
+  // --- Auth APIs ---
+  async login(email, password) {
+    const res = await fetch(`${API_BASE_URL}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    const json = await res.json();
+    if (json.success && json.data?.token) {
+      localStorage.setItem('codememory_token', json.data.token);
+      localStorage.setItem('codememory_user', JSON.stringify(json.data));
+    }
+    return json;
+  },
+
+  async register(name, email, password) {
+    const res = await fetch(`${API_BASE_URL}/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email, password }),
+    });
+    const json = await res.json();
+    if (json.success && json.data?.token) {
+      localStorage.setItem('codememory_token', json.data.token);
+      localStorage.setItem('codememory_user', JSON.stringify(json.data));
+    }
+    return json;
+  },
+
+  logout() {
+    localStorage.removeItem('codememory_token');
+    localStorage.removeItem('codememory_user');
+  },
+
+  getCurrentUser() {
+    try {
+      return JSON.parse(localStorage.getItem('codememory_user')) || { name: 'Boopana (Demo)', email: 'boopana@example.com' };
+    } catch {
+      return { name: 'Boopana (Demo)', email: 'boopana@example.com' };
+    }
+  },
+
+  // --- Dashboard APIs ---
   async getDashboardSummary() {
     try {
       const res = await fetch(`${API_BASE_URL}/dashboard/summary`, {
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
       });
       if (!res.ok) throw new Error('Network error');
       return await res.json();
@@ -142,7 +196,9 @@ export const api = {
 
   async getMistakeProfile() {
     try {
-      const res = await fetch(`${API_BASE_URL}/mistakes/profile`);
+      const res = await fetch(`${API_BASE_URL}/dashboard/profile`, {
+        headers: getAuthHeaders(),
+      });
       if (!res.ok) throw new Error('Network error');
       return await res.json();
     } catch {
@@ -152,7 +208,9 @@ export const api = {
 
   async getWeaknesses() {
     try {
-      const res = await fetch(`${API_BASE_URL}/weaknesses`);
+      const res = await fetch(`${API_BASE_URL}/weaknesses`, {
+        headers: getAuthHeaders(),
+      });
       if (!res.ok) throw new Error('Network error');
       return await res.json();
     } catch {
@@ -162,7 +220,9 @@ export const api = {
 
   async getTimeline() {
     try {
-      const res = await fetch(`${API_BASE_URL}/dashboard/trends`);
+      const res = await fetch(`${API_BASE_URL}/dashboard/trends`, {
+        headers: getAuthHeaders(),
+      });
       if (!res.ok) throw new Error('Network error');
       return await res.json();
     } catch {
@@ -172,7 +232,9 @@ export const api = {
 
   async getTodaysFocus() {
     try {
-      const res = await fetch(`${API_BASE_URL}/recommendations/today`);
+      const res = await fetch(`${API_BASE_URL}/recommendations/today`, {
+        headers: getAuthHeaders(),
+      });
       if (!res.ok) throw new Error('Network error');
       return await res.json();
     } catch {
@@ -183,12 +245,31 @@ export const api = {
   async submitAttempt(payload) {
     const res = await fetch(`${API_BASE_URL}/submissions`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify(payload),
     });
     if (!res.ok) {
       throw new Error(`Submission failed with status: ${res.status}`);
     }
+    return await res.json();
+  },
+
+  // --- ML Advanced Analysis APIs ---
+  async analyzeDiff(wrongCode, acceptedCode, problemTitle) {
+    const res = await fetch(`${ML_API_BASE_URL}/analyze-diff`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ wrongCode, acceptedCode, problemTitle }),
+    });
+    return await res.json();
+  },
+
+  async analyzeAst(code, language = 'java', problemTitle) {
+    const res = await fetch(`${ML_API_BASE_URL}/analyze-ast`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code, language, problemTitle }),
+    });
     return await res.json();
   }
 };

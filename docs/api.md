@@ -72,13 +72,19 @@ This document describes all REST API endpoints for the **Spring Boot Backend** (
 - `GET /api/mistakes?userId=1` &mdash; Returns history of all recorded mistakes.
 - `GET /api/mistakes/categories` &mdash; Lists all 17 supported domain mistake categories.
 
+### 1.6 Authentication & Users
+- `POST /api/auth/register` &mdash; Register new user and returns JWT Bearer token.
+- `POST /api/auth/login` &mdash; Authenticates credentials and returns JWT Bearer token.
+- `GET /api/users/me` &mdash; Returns profile of the authenticated user.
+- `GET /api/users/{id}` &mdash; Returns user profile by ID.
+
 ---
 
 ## 2. Python ML Microservice APIs (`http://localhost:8000`)
 
 ### 2.1 Attempt Analysis
 - `POST /analyze-attempt`
-  - Evaluates submission code and explanation using rule-based heuristics and vector matching.
+  - Evaluates submission code and explanation using hybrid rule-based + TF-IDF heuristics and vector matching.
   - **Response**:
     ```json
     {
@@ -97,3 +103,11 @@ This document describes all REST API endpoints for the **Spring Boot Backend** (
   - Queries FAISS vector memory for top-K nearest historical mistakes.
 - `POST /detect-pattern`
   - Compares the active mistake embedding against past mistakes to flag recurring cross-problem blind spots.
+- `POST /generate-recommendation`
+  - Returns targeted practice curriculum matching detected weakness.
+
+### 2.3 Section 31 Advanced Intelligence
+- `POST /analyze-diff`
+  - Compares wrong vs. accepted code submissions to isolate concrete correction patterns.
+- `POST /analyze-ast`
+  - Performs syntactic tree inspection to detect loop nesting depths and missing invariant guards.

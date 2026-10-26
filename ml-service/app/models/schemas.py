@@ -101,3 +101,43 @@ class PatternDetectionResponse(BaseModel):
     crossProblem: bool
     patternSummary: str
     matches: List[SimilarMistakeItem] = []
+
+class RecommendationItem(BaseModel):
+    problemTitle: str
+    difficulty: str
+    topics: List[str] = []
+    reason: str
+
+class RecommendationRequest(BaseModel):
+    weaknessConcept: str
+    mistakeCategory: MistakeCategory
+    currentMastery: float = 70.0
+    frequency: int = 2
+
+class RecommendationResponse(BaseModel):
+    weaknessConcept: str
+    mistakeCategory: MistakeCategory
+    focusRationale: str
+    recommendedProblems: List[RecommendationItem] = []
+
+class CodeDiffAnalysisRequest(BaseModel):
+    wrongCode: str
+    acceptedCode: str
+    problemTitle: Optional[str] = None
+
+class CodeDiffAnalysisResponse(BaseModel):
+    diffSummary: str
+    detectedCorrectionPatterns: List[str] = []
+    diffLines: List[str] = []
+
+class AstAnalysisRequest(BaseModel):
+    code: str
+    language: Optional[str] = "java"
+    problemTitle: Optional[str] = None
+
+class AstAnalysisResponse(BaseModel):
+    maxNestingDepth: int
+    complexityRisk: str
+    detectedPatterns: List[str] = []
+    structuralIssues: List[str] = []
+
