@@ -31,7 +31,7 @@ services:
       - key: PYTHONUNBUFFERED
         value: "1"
       - key: EMBEDDING_ENGINE
-        value: "auto"
+        value: "lightweight"
 
   # Spring Boot Central Backend (Java 21 + Spring Data JPA)
   - type: web
