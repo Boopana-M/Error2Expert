@@ -11,7 +11,7 @@ databases:
   - name: error2expert-db
     plan: free
     databaseName: codememory
-    user: postgres
+    user: codememory_user
     region: oregon
     ipAllowList: []
 
@@ -60,11 +60,10 @@ services:
         value: "86400000"
 
   # React Analytics Dashboard (Dark Mode UI)
+  # Note: Static sites are deployed globally on Render CDN and must not specify a region
   - type: web
     name: error2expert-frontend
     runtime: static
-    plan: free
-    region: oregon
     rootDir: frontend
     buildCommand: npm install && npm run build
     staticPublishPath: dist
@@ -74,8 +73,4 @@ services:
         destination: /index.html
     envVars:
       - key: VITE_API_URL
-        fromService:
-          type: web
-          name: error2expert-backend
-          property: host
-          path: /api
+        value: https://error2expert-backend.onrender.com/api

@@ -25,9 +25,13 @@ public class MlAnalysisServiceImpl implements MlAnalysisService {
     public MlAnalysisServiceImpl(
             RestClient.Builder restClientBuilder,
             @Value("${ml.service.url:http://localhost:8000}") String mlServiceUrl) {
-        this.mlServiceUrl = mlServiceUrl;
+        String targetUrl = mlServiceUrl != null ? mlServiceUrl.trim() : "http://localhost:8000";
+        if (!targetUrl.startsWith("http://") && !targetUrl.startsWith("https://")) {
+            targetUrl = "http://" + targetUrl;
+        }
+        this.mlServiceUrl = targetUrl;
         this.restClient = restClientBuilder
-                .baseUrl(mlServiceUrl)
+                .baseUrl(targetUrl)
                 .build();
     }
 
