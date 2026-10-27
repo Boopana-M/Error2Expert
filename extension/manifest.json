@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "CodeMemory — AI Second Brain for Coding Mistakes",
+  "name": "Error2Expert — AI Second Brain for Coding Mistakes",
   "version": "1.0.0",
   "description": "Learns from your LeetCode mistakes, classifies root causes with AI, and detects longitudinal weakness patterns.",
   "permissions": [
@@ -10,7 +10,11 @@
   ],
   "host_permissions": [
     "https://leetcode.com/*",
-    "http://localhost:8080/*"
+    "http://localhost:8080/*",
+    "http://127.0.0.1:8080/*",
+    "http://localhost:3000/*",
+    "http://localhost:5173/*",
+    "https://*/*"
   ],
   "action": {
     "default_popup": "popup/popup.html",

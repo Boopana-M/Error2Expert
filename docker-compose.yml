@@ -2,20 +2,20 @@ services:
   # 1. PostgreSQL Relational Database
   postgres:
     image: postgres:16-alpine
-    container_name: codememory-postgres
+    container_name: error2expert-postgres
     restart: unless-stopped
     ports:
       - "5432:5432"
     environment:
       POSTGRES_DB: codememory
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     volumes:
       - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
       - ./database/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d codememory"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d codememory"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -25,12 +25,13 @@ services:
     build:
       context: ./ml-service
       dockerfile: Dockerfile
-    container_name: codememory-ml-service
+    container_name: error2expert-ml-service
     restart: unless-stopped
     ports:
       - "8000:8000"
     environment:
       - PYTHONUNBUFFERED=1
+      - EMBEDDING_ENGINE=${EMBEDDING_ENGINE:-auto}
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
       interval: 10s
@@ -43,7 +44,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: codememory-backend
+    container_name: error2expert-backend
     restart: unless-stopped
     ports:
       - "8080:8080"
@@ -55,11 +56,11 @@ services:
     environment:
       SERVER_PORT: 8080
       DB_URL: jdbc:postgresql://postgres:5432/codememory
-      DB_USERNAME: postgres
-      DB_PASSWORD: postgres
+      DB_USERNAME: ${POSTGRES_USER:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       JPA_DDL_AUTO: update
       ML_SERVICE_URL: http://ml-service:8000
-      JWT_SECRET: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+      JWT_SECRET: ${JWT_SECRET:-404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
       JWT_EXPIRATION_MS: 86400000
 
   # 4. React Analytics Dashboard (Dark Mode UI)
@@ -67,7 +68,10 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: codememory-frontend
+      args:
+        VITE_API_URL: /api
+        VITE_ML_API_URL: http://localhost:8000
+    container_name: error2expert-frontend
     restart: unless-stopped
     ports:
       - "3000:80"

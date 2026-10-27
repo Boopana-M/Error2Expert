@@ -9,7 +9,7 @@ export default function Navbar({ onOpenSubmissionModal }) {
           <Brain className="logo-icon pulsing-indicator" size={26} />
         </div>
         <div>
-          <div className="logo-text">CodeMemory</div>
+          <div className="logo-text">Error2Expert</div>
           <div className="logo-subtext">AI Longitudinal Error Modeling & Second Brain</div>
         </div>
       </div>

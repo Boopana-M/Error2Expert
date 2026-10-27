@@ -6,11 +6,15 @@
 import { ExtensionApi } from './services/api.js';
 
 chrome.runtime.onInstalled.addListener(() => {
-  console.log('[CodeMemory] Extension successfully installed.');
-  chrome.storage.local.set({
-    settings: {
-      backendUrl: 'http://localhost:8080/api',
-      dashboardUrl: 'http://localhost:5173'
+  console.log('[Error2Expert] Extension successfully installed.');
+  chrome.storage.local.get(['settings'], (res) => {
+    if (!res.settings) {
+      chrome.storage.local.set({
+        settings: {
+          backendUrl: 'http://localhost:8080/api',
+          dashboardUrl: 'http://localhost:5173'
+        }
+      });
     }
   });
 });

@@ -1,17 +1,48 @@
 /**
- * CodeMemory Extension API Client
+ * Error2Expert Extension API Client
  * Sends structured attempt and mistake reports to Spring Boot backend.
+ * Dynamically resolves target backend URL from Chrome local storage.
  */
 
-const BACKEND_URL = 'http://localhost:8080/api';
+const DEFAULT_BACKEND_URL = 'http://localhost:8080/api';
+const DEFAULT_DASHBOARD_URL = 'http://localhost:5173';
+
+export async function getBackendUrl() {
+  try {
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+      const res = await chrome.storage.local.get(['settings']);
+      if (res.settings && res.settings.backendUrl) {
+        return res.settings.backendUrl.replace(/\/+$/, '');
+      }
+    }
+  } catch (e) {
+    console.warn('Error reading backendUrl from storage:', e);
+  }
+  return DEFAULT_BACKEND_URL;
+}
+
+export async function getDashboardUrl() {
+  try {
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+      const res = await chrome.storage.local.get(['settings']);
+      if (res.settings && res.settings.dashboardUrl) {
+        return res.settings.dashboardUrl.replace(/\/+$/, '');
+      }
+    }
+  } catch (e) {
+    console.warn('Error reading dashboardUrl from storage:', e);
+  }
+  return DEFAULT_DASHBOARD_URL;
+}
 
 export const ExtensionApi = {
   /**
    * Posts submission and mistake explanation to Spring Boot backend
    */
   async submitAttempt(payload) {
+    const baseUrl = await getBackendUrl();
     try {
-      const response = await fetch(`${BACKEND_URL}/submissions`, {
+      const response = await fetch(`${baseUrl}/submissions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -27,7 +58,7 @@ export const ExtensionApi = {
       const data = await response.json();
       return { success: true, data };
     } catch (error) {
-      console.warn('[CodeMemory API] Backend unreachable, using fallback simulation:', error);
+      console.warn(`[Error2Expert API] Backend at ${baseUrl} unreachable:`, error);
       // Return realistic mock response if backend is offline during browser testing
       return {
         success: false,
@@ -46,12 +77,20 @@ export const ExtensionApi = {
   /**
    * Health check for Spring Boot API
    */
-  async checkHealth() {
+  async checkHealth(customUrl = null) {
+    const baseUrl = customUrl ? customUrl.replace(/\/+$/, '') : await getBackendUrl();
     try {
-      const res = await fetch(`${BACKEND_URL}/submissions?limit=1`, { method: 'GET' });
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 4000);
+      const res = await fetch(`${baseUrl}/submissions?limit=1`, { 
+        method: 'GET',
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
       return res.ok;
     } catch {
       return false;
     }
   }
 };
+

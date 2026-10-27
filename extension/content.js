@@ -116,7 +116,7 @@
       <div style="font-size: 20px;">🧠</div>
       <div>
         <div style="font-weight: 700; color: #fb7185;">${result.replace('_', ' ')} on ${title}</div>
-        <div style="color: #94a3b8; font-size: 11px;">Click the CodeMemory extension icon to record why this failed!</div>
+        <div style="color: #94a3b8; font-size: 11px;">Click the Error2Expert extension icon to record why this failed!</div>
       </div>
       <button id="cm-banner-close" style="background: none; border: none; color: #64748b; font-size: 16px; cursor: pointer; padding: 2px 6px;">✕</button>
     `;

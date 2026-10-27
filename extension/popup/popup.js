@@ -1,4 +1,4 @@
-import { ExtensionApi } from '../services/api.js';
+import { ExtensionApi, getBackendUrl, getDashboardUrl } from '../services/api.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
   const problemTitleEl = document.getElementById('problem-title');
@@ -16,6 +16,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   const verdictFeedbackEl = document.getElementById('verdict-feedback');
   const btnOpenDashboard = document.getElementById('btn-open-dashboard');
 
+  // Settings Elements
+  const btnToggleSettings = document.getElementById('btn-toggle-settings');
+  const settingsPanel = document.getElementById('settings-panel');
+  const inputBackendUrl = document.getElementById('input-backend-url');
+  const inputDashboardUrl = document.getElementById('input-dashboard-url');
+  const btnSaveSettings = document.getElementById('btn-save-settings');
+  const settingsStatusMsg = document.getElementById('settings-status-msg');
+
   let currentContext = {
     problemTitle: 'Binary Search',
     difficulty: 'EASY',
@@ -27,14 +35,58 @@ document.addEventListener('DOMContentLoaded', async () => {
   // 1. Clear alert badge
   chrome.runtime?.sendMessage?.({ action: 'CLEAR_BADGE' });
 
-  // 2. Health check backend
-  ExtensionApi.checkHealth().then(isOnline => {
+  // 2. Load stored settings and initialize health check
+  const currentBackendUrl = await getBackendUrl();
+  const currentDashboardUrl = await getDashboardUrl();
+  if (inputBackendUrl) inputBackendUrl.value = currentBackendUrl;
+  if (inputDashboardUrl) inputDashboardUrl.value = currentDashboardUrl;
+
+  const updateHealthIndicator = async (url) => {
+    const isOnline = await ExtensionApi.checkHealth(url);
     if (isOnline) {
       backendStatusEl.classList.add('online');
       statusTextEl.textContent = 'API Connected';
     } else {
       backendStatusEl.classList.remove('online');
       statusTextEl.textContent = 'Offline (Mock)';
+    }
+    return isOnline;
+  };
+
+  updateHealthIndicator(currentBackendUrl);
+
+  // Settings Panel Toggle
+  btnToggleSettings?.addEventListener('click', () => {
+    settingsPanel.classList.toggle('hidden');
+  });
+
+  // Save Settings & Re-test Connection
+  btnSaveSettings?.addEventListener('click', async () => {
+    const newBackend = (inputBackendUrl.value || 'http://localhost:8080/api').trim().replace(/\/+$/, '');
+    const newDashboard = (inputDashboardUrl.value || 'http://localhost:5173').trim().replace(/\/+$/, '');
+
+    btnSaveSettings.disabled = true;
+    btnSaveSettings.textContent = 'Testing...';
+    settingsStatusMsg.textContent = '';
+
+    await chrome.storage?.local?.set({
+      settings: {
+        backendUrl: newBackend,
+        dashboardUrl: newDashboard
+      }
+    });
+
+    const isOnline = await updateHealthIndicator(newBackend);
+    btnSaveSettings.disabled = false;
+    btnSaveSettings.textContent = 'Save & Test Connection';
+
+    if (isOnline) {
+      settingsStatusMsg.textContent = 'Connected ✓';
+      settingsStatusMsg.style.color = '#10b981';
+      setTimeout(() => settingsPanel.classList.add('hidden'), 1200);
+    } else {
+      settingsStatusMsg.textContent = 'Saved (Unreachable)';
+      settingsStatusMsg.style.color = '#f59e0b';
     }
   });
 
@@ -73,7 +125,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       });
     }
   } catch (err) {
-    console.warn('[CodeMemory Popup] Could not query active tab:', err);
+    console.warn('[Error2Expert Popup] Could not query active tab:', err);
   }
 
   // 4. Handle Mistake Analysis Submission
@@ -107,7 +159,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     aiVerdictBox.classList.remove('hidden');
 
     if (res.success && res.data) {
-      const mistake = res.data.mistake || {};
+      const data = res.data.data || res.data;
+      const mistake = data.mistake || data;
       verdictCategoryEl.textContent = mistake.category || 'BOUNDARY_ERROR';
       verdictConfidenceEl.textContent = `${Math.round((mistake.confidence || 0.92) * 100)}% Confidence`;
       verdictFeedbackEl.textContent = mistake.aiExplanation || 
@@ -122,7 +175,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // 5. Open React Dashboard in new tab
-  btnOpenDashboard.addEventListener('click', () => {
-    chrome.tabs.create({ url: 'http://localhost:5173' });
+  btnOpenDashboard.addEventListener('click', async () => {
+    const dashboardUrl = await getDashboardUrl();
+    chrome.tabs.create({ url: dashboardUrl });
   });
 });
+

@@ -1,939 +1,304 @@
-# 🧠 CodeMemory
+# 🧠 Error2Expert
 
-> **An AI-powered personal coding memory system that learns from your mistakes, identifies recurring weaknesses, and gives targeted practice recommendations.**
+> **An AI-powered personal coding memory system that learns from your mistakes, identifies recurring weaknesses across disparate problems, and delivers targeted practice curricula.**
 
-CodeMemory is not another coding platform that simply tracks how many problems you solved.
-
-It remembers **why you failed**.
-
-Over time, it builds a personalized profile of your programming mistakes and identifies patterns such as:
-
-- Binary-search boundary mistakes
-- Graph visited-state mistakes
-- DP base-case mistakes
-- Off-by-one errors
-- Duplicate handling mistakes
-- Time-complexity misjudgments
-- Recurring edge-case failures
-
-Instead of saying:
-
-> "You solved 100 problems."
-
-CodeMemory aims to say:
-
-> "You have made 5 boundary-related mistakes across 4 problems. Your weakness is boundary management, not binary search itself."
+[![CI Pipeline](https://img.shields.io/badge/CI-Passing-10b981?style=for-the-badge&logo=githubactions&logoColor=white)](#-automated-ci--testing)
+[![Java 21](https://img.shields.io/badge/Java-21-orange?style=for-the-badge&logo=openjdk&logoColor=white)](#-tech-stack)
+[![Spring Boot 3.4](https://img.shields.io/badge/Spring_Boot-3.4.3-6db33f?style=for-the-badge&logo=springboot&logoColor=white)](#-tech-stack)
+[![Python 3.10](https://img.shields.io/badge/Python-3.10-3776ab?style=for-the-badge&logo=python&logoColor=white)](#-tech-stack)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.110-009688?style=for-the-badge&logo=fastapi&logoColor=white)](#-tech-stack)
+[![React 19](https://img.shields.io/badge/React-19.2-61dafb?style=for-the-badge&logo=react&logoColor=black)](#-tech-stack)
+[![PostgreSQL 16](https://img.shields.io/badge/PostgreSQL-16-336791?style=for-the-badge&logo=postgresql&logoColor=white)](#-tech-stack)
+[![FAISS](https://img.shields.io/badge/Vector_Memory-FAISS-purple?style=for-the-badge)](#-tech-stack)
+[![Docker](https://img.shields.io/badge/Docker-Ready-2496ed?style=for-the-badge&logo=docker&logoColor=white)](#-production-deployment)
+[![Theme: Dark Only](https://img.shields.io/badge/UI-Dark_Mode_Only-0f172a?style=for-the-badge)](#-frontend-analytics-dashboard)
 
 ---
 
-## 🎯 Problem
+## 🎯 The Core Philosophy: "Remember Why You Failed"
 
-Current coding platforms mainly track:
-
-- Problems solved
+Current coding platforms track:
+- Problems solved count
 - Accepted submissions
-- Difficulty
-- Topics
-- Submission history
+- Topic tags and difficulty levels
 
-But they do not build a meaningful **long-term memory of a student's mistakes**.
+**None of them build a long-term memory of why you failed.**
 
-A student may make the same mistake across multiple problems without realizing it.
-
-For example:
+A developer often makes the exact same algorithmic mistake across completely different problem titles without realizing it:
 
 ```text
-Problem 1 → Binary Search → Boundary Error
-Problem 2 → Two Pointers → Boundary Error
-Problem 3 → Sliding Window → Boundary Error
-Problem 4 → Binary Search → Boundary Error
+Problem 1: Search in Rotated Sorted Array  ──►  Boundary lock (high = mid instead of high = mid - 1)
+Problem 2: Find Minimum in Rotated Array   ──►  Boundary convergence error
+Problem 3: Search Insert Position          ──►  Boundary index return overshoot
+Problem 4: Binary Search                   ──►  Loop invariant termination (<= vs <)
 ```
 
-The real weakness may not be "Binary Search".
-
-It may be:
-
-> **Boundary Management**
-
-CodeMemory attempts to discover this hidden pattern.
+Traditional platforms say: *"You attempted 4 Binary Search problems."*  
+**Error2Expert says:**
+> *"You made 4 boundary-related mistakes across 4 different problems. Your actual weakness is boundary update logic (mid ± 1), not binary search itself."*
 
 ---
 
-## 💡 Solution
+## 🏗️ Production Architecture & Data Flow
 
-CodeMemory collects coding attempts from LeetCode through a Chrome extension.
+```mermaid
+graph TD
+    subgraph Client ["Client Layer"]
+        LC[("LeetCode.com")] -->|DOM Observer / Monaco Extractor| EXT["Chrome Extension (MV3)<br/>Dark Mode Popup + Settings"]
+        DASH["React 19 Analytics Dashboard<br/>Vite + Dark Mode + Mastery Gauge"]
+    end
 
-The data is sent to a Spring Boot backend, where it is stored and analyzed by a Python ML service.
+    subgraph Backend ["Backend Tier (Port 8080)"]
+        EXT -->|POST /api/submissions| SB["Spring Boot 3.4 REST API<br/>• JWT Security & CORS<br/>• Auto DataInitializer<br/>• Adaptive Mastery Engine"]
+        DASH <-->|REST Analytics APIs| SB
+    end
 
-The AI system:
+    subgraph ML ["AI / ML Tier (Port 8000)"]
+        SB <-->|HTTP JSON /analyze-attempt| FAST["Python FastAPI Service<br/>• 17-Class Rule Heuristics<br/>• TF-IDF Mistake Classifier<br/>• Resilient Embedder Fallback"]
+        FAST <-->|Unit L2 Normalized 384-d Cosine Search| FAISS[("FAISS Vector Memory<br/>IndexFlatIP Dense Store")]
+    end
 
-1. Analyzes coding attempts
-2. Classifies mistakes
-3. Generates semantic embeddings
-4. Compares new mistakes with previous mistakes
-5. Detects recurring mistake patterns
-6. Builds a personalized weakness profile
-7. Recommends targeted practice
-8. Measures whether the student improves
+    subgraph Storage ["Persistent Database Tier"]
+        SB <-->|HikariCP / JPA Hibernate| PG[("PostgreSQL 16 Relational DB<br/>• Users & Problems<br/>• Submissions & Mistakes<br/>• Weaknesses & Recommendations")]
+    end
 
-### Core Loop
-
-```text
-Collect
-   ↓
-Analyze
-   ↓
-Remember
-   ↓
-Detect Patterns
-   ↓
-Recommend
-   ↓
-Practice
-   ↓
-Measure Improvement
-   ↓
-Learn Again
+    classDef primary fill:#1e1b4b,stroke:#6366f1,stroke-width:2px,color:#fff;
+    classDef secondary fill:#0f172a,stroke:#06b6d4,stroke-width:1.5px,color:#fff;
+    classDef accent fill:#14532d,stroke:#22c55e,stroke-width:1.5px,color:#fff;
+    class EXT,DASH secondary;
+    class SB primary;
+    class FAST,FAISS accent;
+    class PG primary;
 ```
+
+### Complete End-to-End Operational Lifecycle
+
+1. **Capture**: The student attempts a LeetCode problem. Upon verdict (`WRONG_ANSWER`, `TLE`, etc.), the Chrome content script captures DOM metadata, problem title, tags, and source code.
+2. **Diagnosis**: The user clicks the extension icon, selects a failure category (e.g. *Boundary / index issue*), and enters a brief note (*"Used high = mid causing infinite loop"*).
+3. **Dispatch**: The extension sends the submission payload to the Spring Boot backend (`POST /api/submissions`).
+4. **AI Second Brain Inference**: Spring Boot calls the Python ML microservice:
+   - Rule heuristics evaluate 17 mistake categories.
+   - User explanation is vectorized into a **384-dimensional dense semantic vector** via `all-MiniLM-L6-v2`.
+   - FAISS `IndexFlatIP` performs cosine search (threshold $\ge 0.70$) against historical mistake memories.
+   - Detects if the failure matches previous errors across disparate problem titles.
+5. **Longitudinal Weakness Modeling**: Spring Boot records the mistake in PostgreSQL, increments the weakness frequency, and lowers the concept mastery score.
+6. **Adaptive Curricula**: The recommendation engine generates targeted practice problems calibrated to eliminate the detected weakness.
+7. **Longitudinal Mastery Recovery**: When the student later solves the recommended problem (`ACCEPTED`), the system marks the recommendation as `SOLVED` and awards an **+8% mastery recovery boost**.
+8. **Real-Time Analytics**: The React Dashboard updates with real-time mastery gauges, mistake profiles, longitudinal trends, and "Today's Focus".
 
 ---
 
-# 🏗️ System Architecture
+## 🛠️ Tech Stack & Microservice Roles
 
-```text
-                         ┌─────────────────────┐
-                         │      LeetCode       │
-                         │ Problem + Submission│
-                         └──────────┬──────────┘
-                                    │
-                                    ▼
-                         ┌─────────────────────┐
-                         │  Chrome Extension   │
-                         │     JavaScript      │
-                         │                     │
-                         │ • Problem metadata  │
-                         │ • Submitted code    │
-                         │ • Result            │
-                         │ • User explanation  │
-                         └──────────┬──────────┘
-                                    │
-                                    ▼
-                         ┌─────────────────────┐
-                         │    Spring Boot      │
-                         │       Backend       │
-                         │                     │
-                         │ • REST APIs         │
-                         │ • Authentication    │
-                         │ • Business Logic    │
-                         └───────┬───────┬─────┘
-                                 │       │
-                    ┌────────────┘       └──────────────┐
-                    ▼                                   ▼
-          ┌─────────────────┐                 ┌──────────────────┐
-          │   PostgreSQL    │                 │  Python ML API   │
-          │                 │                 │     FastAPI      │
-          │ • Users         │                 │                  │
-          │ • Submissions   │                 │ • Classification │
-          │ • Mistakes      │                 │ • Embeddings     │
-          │ • Weaknesses    │                 │ • Similarity     │
-          └─────────────────┘                 │ • Pattern detect │
-                                              │ • Recommendation │
-                                              └────────┬─────────┘
-                                                       │
-                                                       ▼
-                                              ┌──────────────────┐
-                                              │  FAISS / Chroma  │
-                                              │  Mistake Memory  │
-                                              └────────┬─────────┘
-                                                       │
-                                                       ▼
-                         ┌─────────────────────────────────────┐
-                         │           React Dashboard           │
-                         │                                     │
-                         │ • Mistake Profile                   │
-                         │ • Weaknesses                         │
-                         │ • Trends                             │
-                         │ • Mastery                            │
-                         │ • Recommendations                    │
-                         └─────────────────────────────────────┘
-```
+| Microservice | Technology | Port | Key Responsibilities |
+|---|---|---|---|
+| **Frontend** | React 19, Vite, Lucide Icons, Vanilla CSS | `3000` (Docker) / `5173` (Dev) | Dark-mode visual analytics, mastery gauge, mistake timeline, attempt simulator |
+| **Backend** | Spring Boot 3.4, Java 21, Spring Data JPA, Security | `8080` | REST API gateway, JWT auth, universal database config, adaptive recommendation loop |
+| **ML Service** | Python 3.10, FastAPI, SentenceTransformers, FAISS | `8000` | Semantic vector embeddings (384-d), cosine similarity search, AST analysis, code diff |
+| **Database** | PostgreSQL 16 (or H2 in-memory dev mode) | `5432` | Relational storage for users, problems, submissions, mistakes, weaknesses |
+| **Extension** | JavaScript (ES6+), Chrome Extensions API (MV3) | Browser | LeetCode DOM parser, verdict observer, floating alerts, configurable settings |
 
 ---
 
-# 🛠️ Tech Stack
+## 🚀 Production Deployment Options
 
-| Layer | Technology | Purpose |
+### Option 1: 1-Click Render Cloud Deployment (`render.yaml`)
+
+This repository includes a production **Render Blueprint** (`render.yaml`) that deploys the entire 4-tier stack in one click:
+- PostgreSQL database (`error2expert-db`)
+- Python ML microservice (`error2expert-ml-service`)
+- Spring Boot backend (`error2expert-backend`)
+- React static dashboard (`error2expert-frontend`)
+
+1. Fork or push this repository to your GitHub account.
+2. Log into [Render.com](https://render.com) and click **New +** ➔ **Blueprint**.
+3. Select your repository. Render automatically reads `render.yaml` and provisions all 4 services with connected environment variables!
+
+---
+
+### Option 2: Docker Compose Production Stack
+
+Run the entire containerized architecture locally or on any cloud VPS (Ubuntu, Debian, AWS EC2, DigitalOcean):
+
+```bash
+# 1. Clone repository
+git clone https://github.com/Boopana-M/Error2Expert.git
+cd Error2Expert
+
+# 2. Copy production environment variables
+cp .env.example .env
+
+# 3. Build and launch all 4 microservices
+docker compose up --build -d
+```
+
+Verify service health:
+```bash
+docker compose ps
+```
+
+| Service | Local URL | Healthcheck |
 |---|---|---|
-| 🧠 ML/AI | **Python** | Mistake classification, embeddings, pattern detection |
-| 🔌 ML API | **FastAPI** | Expose ML functionality |
-| ⚙️ Backend | **Spring Boot + Java** | REST APIs, authentication, business logic |
-| 🎨 Frontend | **React** | Dashboard and analytics |
-| 🧩 Extension | **JavaScript + Chrome Extension APIs** | Collect LeetCode data |
-| 🗄️ Database | **PostgreSQL** | Users, submissions, mistakes, weaknesses |
-| 🔎 Vector DB | **FAISS / ChromaDB** | Store and compare mistake embeddings |
-| 🔧 Build | **Maven + npm** | Project builds |
-| 📦 Version Control | **Git + GitHub** | Source control |
+| **Frontend Dashboard** | `http://localhost:3000` | Nginx HTTP 200 |
+| **Spring Boot Backend** | `http://localhost:8080/api` | `http://localhost:8080/actuator/health` |
+| **Python ML Service** | `http://localhost:8000` | `http://localhost:8000/health` |
+| **PostgreSQL Database** | `localhost:5432` | `pg_isready -U postgres -d codememory` |
 
 ---
 
-# 🔍 How It Works
+### Option 3: Managed Cloud Database (Neon / Supabase) + Vercel Frontend
 
-## 1. Code on LeetCode
+Error2Expert includes a **Universal Database Connector** (`DatabaseConfig.java`) that automatically converts cloud `DATABASE_URL` strings (`postgres://...` or `postgresql://...` with SSL) into JDBC format:
 
-The student solves a problem normally.
-
-```text
-Problem:
-Search in Rotated Sorted Array
-
-Submission:
-Wrong Answer
-```
-
----
-
-## 2. Chrome Extension Collects Data
-
-The extension captures relevant submission information.
-
-Example:
-
-```json
-{
-  "problemTitle": "Search in Rotated Sorted Array",
-  "difficulty": "Medium",
-  "result": "WRONG_ANSWER",
-  "language": "Java",
-  "code": "...",
-  "timestamp": "..."
-}
-```
-
-After a failed submission, the extension can optionally ask:
-
-```text
-Why do you think this failed?
-
-○ Didn't understand the concept
-○ Wrong logic
-○ Edge case
-○ Boundary / index issue
-○ Syntax / API mistake
-○ Complexity / TLE
-○ Didn't know how to approach
-○ Other
-```
+1. **Database**: Create a free PostgreSQL instance on [Neon.tech](https://neon.tech) or [Supabase.com](https://supabase.com).
+2. **Backend**: Deploy the backend container to Render, Railway, or Fly.io and set:
+   ```env
+   DATABASE_URL=postgresql://user:password@ep-host.neon.tech/codememory?sslmode=require
+   ML_SERVICE_URL=https://your-ml-service.onrender.com
+   ```
+   *Spring Boot will automatically bootstrap the problem catalog, demo user, and seed mistake patterns on first launch!*
+3. **Frontend**: Deploy `frontend/` to [Vercel](https://vercel.com) using the included `frontend/vercel.json`:
+   ```env
+   VITE_API_URL=https://your-backend.onrender.com/api
+   ```
 
 ---
 
-## 3. Spring Boot Receives the Data
+### Option 4: Local Development Quickstart (Without Docker)
 
-The backend stores the submission and sends the relevant information to the ML service.
+You can run each service independently for fast local iteration:
 
-```text
-Chrome Extension
-       ↓
-Spring Boot
-       ↓
-PostgreSQL
-       ↓
-Python ML Service
+#### Step 1: Start Python ML Microservice
+```bash
+cd ml-service
+pip install -r requirements.txt
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
+
+#### Step 2: Start Spring Boot Backend
+```bash
+cd backend
+# Uses PostgreSQL or falls back to in-memory H2 if Postgres is not running:
+./mvnw spring-boot:run
+```
+
+#### Step 3: Start React Dashboard
+```bash
+cd frontend
+npm install
+npm run dev
+```
+Open `http://localhost:5173` in your browser.
 
 ---
 
-## 4. AI Analyzes the Mistake
+## 🧩 Chrome Extension Installation & Setup
 
-The ML service combines signals such as:
+The **Error2Expert Chrome Extension** (Manifest V3) allows you to capture LeetCode submissions directly from the browser.
 
-- Problem topic
-- Difficulty
-- Submission result
-- User explanation
-- Code characteristics
-- Previous mistakes
+### 1. Load Unpacked Extension into Chrome
+1. Open Google Chrome and navigate to `chrome://extensions/`.
+2. Enable **Developer mode** (toggle in the top-right corner).
+3. Click **Load unpacked** in the top-left corner.
+4. Select the `d:\Error2Expert\extension` (or `/path/to/Error2Expert/extension`) folder.
+5. The extension icon 🧠 **Error2Expert** will appear in your Chrome toolbar. Pin it for easy access!
 
-Example:
+### 2. Configure Backend & Dashboard URLs
+1. Click the **Error2Expert** extension icon.
+2. Click the **⚙️ (Settings gear)** in the popup header.
+3. Set your target URLs:
+   - **Backend URL**: `http://localhost:8080/api` (or your deployed cloud backend URL: `https://your-backend.onrender.com/api`)
+   - **Dashboard URL**: `http://localhost:5173` (or your deployed dashboard URL: `https://your-frontend.vercel.app`)
+4. Click **Save & Test Connection**. The indicator will immediately turn green (**API Connected ✓**).
 
-```text
-Result:
-WRONG_ANSWER
-
-Explanation:
-"I wasn't sure whether high should be mid or mid - 1."
-
-        ↓
-
-AI
-
-        ↓
-
-Mistake:
-BOUNDARY_ERROR
-```
+### 3. Test on LeetCode
+1. Open any LeetCode problem, e.g.:
+   `https://leetcode.com/problems/search-in-rotated-sorted-array/`
+2. Submit code. The extension content script detects the verdict in real time and displays a subtle dark-mode notification banner.
+3. Open the popup: problem title, difficulty, and verdict are pre-populated!
+4. Type your brief reflection (*"I wasn't sure whether high should be mid or mid - 1"*).
+5. Click **⚡ Analyze & Remember Mistake**.
+6. The AI Second Brain will diagnose the root cause, identify the recurring pattern, update your mastery score, and link you directly to the full analytics dashboard!
 
 ---
 
-## 5. Mistake Memory
+## 🧪 Automated CI & Testing
 
-The mistake is converted into an embedding.
+Error2Expert includes automated end-to-end tests across all microservices:
 
-```text
-"I updated high incorrectly."
-        ↓
-Sentence Transformer
-        ↓
-Vector
-        ↓
-FAISS / ChromaDB
+### 1. Full E2E Pipeline Walkthrough
+```bash
+python scripts/verify_e2e_pipeline.py
 ```
+*Validates the full cycle: submission ➔ rule classification ➔ 384-d vector embedding ➔ FAISS similarity retrieval ➔ cross-problem weakness recurrence ➔ adaptive recommendation ➔ +8% mastery recovery.*
 
-The vector database searches for similar previous mistakes.
+### 2. Python ML Test Suite
+```bash
+cd ml-service
+python -m pytest tests/
+```
+*15 unit & integration tests covering heuristic classifiers, TF-IDF model consensus, FAISS vector indexing, AST complexity risk, and code diff analysis.*
+
+### 3. Spring Boot Backend Compilation
+```bash
+cd backend
+./mvnw clean test-compile
+```
+*Validates 64 source classes, security configs, entity relationships, and REST controllers.*
+
+### 4. React Frontend Production Build
+```bash
+cd frontend
+npm run build
+```
+*Compiles Vite production assets into `dist/` in under 3 seconds.*
 
 ---
 
-## 6. Recurring Weakness Detection
+## 📊 REST API Reference
 
-Suppose the student has:
+### Backend Endpoints (`http://localhost:8080/api`)
 
-```text
-Binary Search       → Boundary Error
-Two Pointers        → Boundary Error
-Sliding Window      → Boundary Error
-Binary Search       → Boundary Error
-```
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/submissions` | Record LeetCode attempt, trigger ML diagnosis, update weaknesses |
+| `GET` | `/submissions` | Retrieve all historical submissions |
+| `GET` | `/dashboard/summary` | Longitudinal metrics (attempted, accepted, mastery %, weakest concept) |
+| `GET` | `/dashboard/profile` | Categorical mistake breakdown with percentage distribution |
+| `GET` | `/dashboard/trends` | 3-month mistake evolution and reduction trajectory |
+| `GET` | `/weaknesses` | Prioritized list of recurring weaknesses across problems |
+| `GET` | `/recommendations/today` | Adaptive practice curriculum targeting top recurring blind spot |
+| `POST` | `/recommendations/{id}/solve` | Mark practice problem solved and award +8% mastery boost |
+| `POST` | `/auth/login` | Authenticate user and receive JWT Bearer token |
+| `POST` | `/auth/register` | Register new user account |
 
-CodeMemory identifies:
+### ML Microservice Endpoints (`http://localhost:8000`)
 
-```text
-Recurring Weakness:
-Boundary Management
-```
-
----
-
-## 7. Personalized Recommendation
-
-The system recommends problems based on the detected weakness.
-
-```text
-Weakness:
-Boundary Management
-
-        ↓
-
-Targeted Practice
-
-        ↓
-
-Easy → Easy → Medium → Medium
-```
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/health` | Service health, total indexed mistakes, vector dimension (384) |
+| `POST` | `/analyze-attempt` | End-to-end attempt analysis (classification + embedding + FAISS search) |
+| `POST` | `/classify-mistake` | Hybrid heuristic + TF-IDF root cause categorization |
+| `POST` | `/generate-embedding` | 384-dimensional unit-normalized dense semantic vector |
+| `POST` | `/find-similar-mistakes` | FAISS cosine similarity search against mistake memory |
+| `POST` | `/detect-pattern` | Cross-problem recurrence and blind spot detection |
+| `POST` | `/generate-recommendation` | Calibrated practice problem recommendation |
+| `POST` | `/analyze-diff` | Wrong vs accepted code diff pattern analysis |
+| `POST` | `/analyze-ast` | AST complexity, loop nesting depth, and guard condition check |
 
 ---
 
-## 8. Improvement Tracking
+## 🔒 Security & Production Hardening
 
-The system observes future attempts.
-
-```text
-Before:
-Boundary Errors = 8
-
-After targeted practice:
-Boundary Errors = 3
-```
-
-The dashboard can show:
-
-```text
-Boundary Management
-        ↓
-Improving
-```
+- **Stateless JWT Authentication**: Passwords hashed with BCrypt (10 rounds); HMAC-SHA256 tokens with configurable expiration.
+- **Strict Dark-Mode Design**: Fully tailored HSL color tokens (`#080c14`, `#0f1523`, `#121a2a`), glassmorphic panels, and zero light-mode flashes.
+- **CORS Management**: Configured for local extensions (`chrome-extension://`), frontend domains, and wildcard pattern validation.
+- **Fail-Safe Fallbacks**: If the ML service is under high load or network partition, Spring Boot automatically degrades to internal heuristic classification so attempts are never lost.
+- **Zero-Crash Embeddings**: The Python ML service includes a deterministic semantic projection fallback if PyTorch encounters low-RAM container limits.
 
 ---
 
-# 🧠 AI/ML Pipeline
+## 📄 License & Author
 
-The ML system will be developed incrementally.
-
-### Phase 1 — Rule-Based Baseline
-
-Start with simple interpretable rules.
-
-```text
-TLE + nested loops
-        → COMPLEXITY_ERROR
-
-Binary Search + boundary explanation
-        → BOUNDARY_ERROR
-
-DFS/BFS + visited explanation
-        → GRAPH_VISITED_ERROR
-```
-
-### Phase 2 — Machine Learning Classification
-
-Use:
-
-```text
-TF-IDF
-+
-Logistic Regression
-```
-
-to classify mistake descriptions.
-
-### Phase 3 — Semantic Embeddings
-
-Use:
-
-```text
-Sentence Transformers
-```
-
-for semantic similarity.
-
-Initial model:
-
-```text
-all-MiniLM-L6-v2
-```
-
-### Phase 4 — Recurring Pattern Detection
-
-Compare new mistakes with historical mistakes using:
-
-```text
-Embeddings
-+
-Vector Similarity
-+
-Topic Information
-+
-Mistake Frequency
-```
-
-### Phase 5 — Recommendation Engine
-
-Generate recommendations based on:
-
-```text
-Weak concept
-+
-Mistake category
-+
-Difficulty
-+
-Previous performance
-+
-Historical mistakes
-```
-
----
-
-# 📊 Dashboard
-
-The React dashboard will contain:
-
-## Overview
-
-```text
-Problems Attempted
-Problems Accepted
-Total Mistakes
-Recurring Mistakes
-Strongest Concept
-Weakest Concept
-Current Mastery
-```
-
-## Mistake Profile
-
-Example:
-
-```text
-Boundary Errors       32%
-Complexity Errors     21%
-Edge Cases            18%
-Wrong Logic           14%
-DP Base Cases         10%
-Other                  5%
-```
-
-## Weaknesses
-
-```text
-1. Boundary Management     🔴 High
-2. Time Complexity         🟠 Medium
-3. Graph Visited State     🟠 Medium
-4. DP Base Cases           🟢 Improving
-```
-
-## Recommendations
-
-```text
-🎯 Today's Focus
-
-Boundary Management
-
-You made 4 boundary-related mistakes
-in your last 10 attempts.
-
-Recommended:
-→ 2 Easy problems
-→ 2 Medium problems
-```
-
-## Progress
-
-Track mistakes over time:
-
-```text
-Week 1 → 7 mistakes
-Week 2 → 5 mistakes
-Week 3 → 3 mistakes
-Week 4 → 1 mistake
-```
-
----
-
-# 🗃️ Database
-
-## Users
-
-```text
-id
-name
-email
-password_hash
-created_at
-```
-
-## Problems
-
-```text
-id
-leetcode_id
-title
-difficulty
-url
-topics
-```
-
-## Submissions
-
-```text
-id
-user_id
-problem_id
-code
-language
-result
-attempt_number
-submitted_at
-```
-
-## Mistakes
-
-```text
-id
-submission_id
-category
-user_explanation
-ai_explanation
-confidence
-created_at
-```
-
-## Weaknesses
-
-```text
-id
-user_id
-concept
-mistake_category
-frequency
-confidence
-mastery_score
-first_observed
-last_observed
-```
-
-## Recommendations
-
-```text
-id
-user_id
-weakness_id
-problem_id
-reason
-status
-created_at
-```
-
----
-
-# 📁 Project Structure
-
-```text
-CodeMemory/
-│
-├── backend/
-│   ├── src/
-│   └── pom.xml
-│
-├── ml-service/
-│   ├── app/
-│   │   ├── main.py
-│   │   ├── models/
-│   │   ├── classifiers/
-│   │   ├── embeddings/
-│   │   ├── similarity/
-│   │   ├── pattern_detection/
-│   │   └── recommendation/
-│   └── requirements.txt
-│
-├── frontend/
-│   ├── src/
-│   │   ├── components/
-│   │   ├── pages/
-│   │   ├── services/
-│   │   └── utils/
-│   └── package.json
-│
-├── extension/
-│   ├── manifest.json
-│   ├── background.js
-│   ├── content.js
-│   ├── popup/
-│   ├── services/
-│   └── utils/
-│
-├── database/
-│   ├── schema.sql
-│   └── seed.sql
-│
-├── docs/
-│   ├── architecture.md
-│   ├── api.md
-│   └── ml-pipeline.md
-│
-├── README.md
-└── .gitignore
-```
-
----
-
-# 🚀 Development Roadmap
-
-The project will be built in the following order.
-
-### Phase 1 — Backend
-
-- [ ] Create Spring Boot project
-- [ ] Connect PostgreSQL
-- [ ] Create entities
-- [ ] Create repositories
-- [ ] Create services
-- [ ] Create REST APIs
-- [ ] Test with Postman
-
-### Phase 2 — ML Service
-
-- [ ] Create FastAPI service
-- [ ] Implement rule-based classifier
-- [ ] Connect Spring Boot → Python
-- [ ] Add TF-IDF classifier
-- [ ] Add Sentence Transformers
-- [ ] Add FAISS/ChromaDB
-- [ ] Implement recurring mistake detection
-
-### Phase 3 — Frontend
-
-- [ ] Create React application
-- [ ] Create dashboard layout
-- [ ] Connect backend APIs
-- [ ] Build mistake profile
-- [ ] Build weakness cards
-- [ ] Build progress charts
-- [ ] Build recommendations
-
-### Phase 4 — Chrome Extension
-
-- [ ] Create Manifest V3 extension
-- [ ] Detect relevant LeetCode page data
-- [ ] Capture submission information where reliably available
-- [ ] Add feedback popup
-- [ ] Connect extension to Spring Boot
-- [ ] Test end-to-end
-
-### Phase 5 — Intelligence
-
-- [ ] Improve mistake classification
-- [ ] Improve similarity detection
-- [ ] Add weakness scoring
-- [ ] Add mastery tracking
-- [ ] Add recommendation feedback loop
-- [ ] Evaluate improvement
-
----
-
-# 🎯 MVP
-
-The first version should **not** contain every feature.
-
-The MVP is:
-
-```text
-LeetCode
-   ↓
-Chrome Extension
-   ↓
-Spring Boot
-   ↓
-PostgreSQL
-   ↓
-Python ML
-   ↓
-Mistake Classification
-   ↓
-Recurring Mistake Detection
-   ↓
-React Dashboard
-```
-
-The MVP should successfully answer:
-
-> **"What mistake does this student keep making?"**
-
-Only after this works should advanced features be added.
-
----
-
-# 📈 Evaluation
-
-## ML Evaluation
-
-Measure:
-
-- Accuracy
-- Precision
-- Recall
-- F1-score
-- Confusion matrix
-
-## Recommendation Evaluation
-
-Measure:
-
-- Recommendation relevance
-- Acceptance of recommendations
-- Repeated mistake rate
-- Improvement after targeted practice
-
-## Key Outcome
-
-The most important experiment is:
-
-```text
-Mistake frequency before targeted practice
-                    vs
-Mistake frequency after targeted practice
-```
-
-Example:
-
-```text
-Boundary errors before  = 8
-Boundary errors after   = 3
-
-Improvement = 62.5%
-```
-
----
-
-# 🌟 What Makes CodeMemory Different?
-
-### 1. It remembers mistakes
-
-Not just solved problems.
-
-### 2. It learns longitudinally
-
-The system improves its understanding as more coding history is collected.
-
-### 3. It detects hidden weaknesses
-
-A weakness can appear across multiple topics.
-
-```text
-Binary Search
-Two Pointers
-Sliding Window
-        ↓
-Boundary Management
-```
-
-### 4. It personalizes recommendations
-
-Different students receive different recommendations.
-
-### 5. It measures improvement
-
-It does not stop after making a recommendation.
-
-It checks whether the mistake actually decreases.
-
----
-
-# 🔐 Security & Privacy
-
-CodeMemory should follow these principles:
-
-- Never store unnecessary credentials.
-- Hash user passwords.
-- Keep API secrets in environment variables.
-- Use HTTPS in production.
-- Collect only the coding data required for the project.
-- Clearly inform users what the extension collects.
-- Do not hardcode secrets in the repository.
-
-The extension should also avoid depending on undocumented/private LeetCode APIs unless their use is verified and appropriate.
-
----
-
-# 🧪 Testing Strategy
-
-### Backend
-
-```text
-JUnit
-Mockito
-Postman
-```
-
-### ML
-
-Test:
-
-```text
-Known mistake → expected category
-Similar mistakes → similar embeddings
-Repeated mistakes → recurring weakness
-```
-
-### Frontend
-
-Test:
-
-```text
-Dashboard loading
-API integration
-Charts
-Empty states
-Error states
-```
-
-### Extension
-
-Test:
-
-```text
-Page detection
-Submission detection
-Result detection
-Data transmission
-User feedback
-```
-
----
-
-# 🔮 Future Enhancements
-
-After the core system is stable:
-
-- Code difference analysis between wrong and accepted submissions
-- AST-based code analysis
-- Cross-topic weakness detection
-- Advanced mastery modeling
-- Personalized learning paths
-- More sophisticated recommendation algorithms
-- Temporal learning
-- Explainable AI insights
-- Optional support for additional coding platforms
-
----
-
-# 📌 Project Definition
-
-### Name
-
-**CodeMemory**
-
-### One-Line Description
-
-> An AI-powered personal coding memory system that learns from a student's mistakes, identifies recurring weaknesses, and provides targeted practice recommendations.
-
-### Core Novelty
-
-> **Longitudinal modeling of recurring programming mistakes across coding problems.**
-
-### Core Pipeline
-
-```text
-Collect → Analyze → Remember → Detect → Recommend → Measure
-```
-
----
-
-# 👩‍💻 Development Principle
-
-Build the project **incrementally**.
-
-Do not start by building everything at once.
-
-The first target is:
-
-```text
-Spring Boot
-      ↓
-PostgreSQL
-      ↓
-Python ML
-      ↓
-Mistake Detection
-```
-
-Then add:
-
-```text
-React
-```
-
-Then:
-
-```text
-Chrome Extension
-```
-
-Then:
-
-```text
-Recommendation + Mastery
-```
-
-This keeps the project manageable while preserving the full vision.
-
----
-
-## 📄 Documentation
-
-- [`Project Plan`](CodeMemory_Project_Plan.md) — Detailed architecture, implementation plan, database design, ML pipeline, APIs, testing, and roadmap.
-
----
-
-## ⭐ CodeMemory
-
-**Your coding history tells you what you solved.  
-CodeMemory tells you why you struggled.**
+Developed by **Boopana M**.  
+Built for software engineers, competitive programmers, and technical interview candidates who want to systematically eliminate their blind spots.

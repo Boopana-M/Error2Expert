@@ -4,7 +4,10 @@
  * Provides automatic fallback to initial seed dataset when backend is booting or hermetic.
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 
+  (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1'
+    ? `${window.location.origin}/api`
+    : 'http://localhost:8080/api');
 
 // Canonical fallback data adhering directly to database/seed.sql and CodeMemory_Project_Plan.md
 const FALLBACK_DASHBOARD_DATA = {
