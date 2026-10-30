@@ -39,8 +39,8 @@ services:
     runtime: docker
     plan: free
     region: oregon
-    rootDir: backend
-    dockerfilePath: Dockerfile
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
     healthCheckPath: /api/health
     envVars:
       - key: DATABASE_URL
