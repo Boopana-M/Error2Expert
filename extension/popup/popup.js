@@ -26,11 +26,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   const settingsStatusMsg = document.getElementById('settings-status-msg');
 
   let currentContext = {
-    problemTitle: 'Binary Search',
-    difficulty: 'EASY',
-    result: 'WRONG_ANSWER',
-    code: '// Submitted binary search attempt',
-    url: 'https://leetcode.com/problems/binary-search/'
+    problemTitle: '',
+    difficulty: '',
+    result: '',
+    code: '',
+    url: ''
   };
 
   // 1. Clear alert badge
@@ -144,17 +144,27 @@ document.addEventListener('DOMContentLoaded', async () => {
       });
     } else {
       // Check last cached submission
-      chrome.storage.local.get(['lastSubmission'], (res) => {
-        if (res.lastSubmission) {
+      chrome.storage?.local?.get(['lastSubmission'], (res) => {
+        if (res.lastSubmission && res.lastSubmission.problemTitle) {
           currentContext = { ...currentContext, ...res.lastSubmission };
           problemTitleEl.textContent = currentContext.problemTitle;
-          problemDifficultyEl.textContent = currentContext.difficulty.substring(0, 3);
-          problemDifficultyEl.className = `badge badge-${currentContext.difficulty.toLowerCase()}`;
-          submissionResultEl.textContent = currentContext.result;
+          if (problemDifficultyEl) {
+            problemDifficultyEl.style.display = 'inline-block';
+            problemDifficultyEl.textContent = (currentContext.difficulty || 'MED').substring(0, 3);
+            problemDifficultyEl.className = `badge badge-${(currentContext.difficulty || 'medium').toLowerCase()}`;
+          }
+          if (submissionResultEl) {
+            submissionResultEl.style.display = 'inline-block';
+            submissionResultEl.textContent = currentContext.result || 'SUBMISSION';
+          }
           pageStatusEl.textContent = 'Last Captured Attempt';
         } else {
-          problemTitleEl.textContent = 'Binary Search (Demo)';
-          pageStatusEl.textContent = 'Ready for submission';
+          problemTitleEl.textContent = 'No LeetCode Problem Active';
+          if (problemDifficultyEl) problemDifficultyEl.style.display = 'none';
+          if (submissionResultEl) submissionResultEl.style.display = 'none';
+          pageStatusEl.textContent = 'Open leetcode.com/problems/* to capture submissions';
+          btnAnalyze.disabled = true;
+          btnAnalyze.textContent = 'Navigate to a LeetCode problem';
         }
       });
     }
