@@ -75,11 +75,23 @@ def run_e2e_walkthrough():
     # Step 4: FAISS Vector Memory Search & Pattern Detection
     print("\n[Step 4] Querying FAISS Vector Memory for Similar Past Mistakes...")
     from app.main import vector_memory as vector_store, pattern_detector as detector
+    
+    # Index User's prior mistake on Binary Search to establish personal longitudinal memory
+    vector_store.add_mistake(
+        mistake_id="prior-1",
+        text="Left boundary was updated to mid instead of mid + 1, causing infinite loop",
+        category=category,
+        problem_title="Binary Search",
+        topics=["Binary Search", "Array"],
+        user_id="user-walkthrough"
+    )
+
     pattern = detector.detect_pattern(
         new_mistake_text=explanation,
         category=category,
         problem_title=problem,
-        topics=["Binary Search", "Array"]
+        topics=["Binary Search", "Array"],
+        user_id="user-walkthrough"
     )
     
     print(f"  Recurring Blind Spot Detected: {pattern.recurring}")

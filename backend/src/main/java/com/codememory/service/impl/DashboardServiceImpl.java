@@ -1,5 +1,6 @@
 package com.codememory.service.impl;
 
+import com.codememory.config.SecurityUtils;
 import com.codememory.dto.DashboardSummaryResponse;
 import com.codememory.dto.MistakeProfileItemResponse;
 import com.codememory.dto.TrendResponse;
@@ -10,40 +11,39 @@ import com.codememory.entity.enums.MistakeCategory;
 import com.codememory.entity.enums.SubmissionResult;
 import com.codememory.repository.MistakeRepository;
 import com.codememory.repository.SubmissionRepository;
-import com.codememory.repository.UserRepository;
 import com.codememory.repository.WeaknessRepository;
 import com.codememory.service.DashboardService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
+@RequiredArgsConstructor
+@Slf4j
 public class DashboardServiceImpl implements DashboardService {
 
     private final SubmissionRepository submissionRepository;
     private final MistakeRepository mistakeRepository;
     private final WeaknessRepository weaknessRepository;
-    private final UserRepository userRepository;
+    private final SecurityUtils securityUtils;
 
-    public DashboardServiceImpl(
-            SubmissionRepository submissionRepository,
-            MistakeRepository mistakeRepository,
-            WeaknessRepository weaknessRepository,
-            UserRepository userRepository) {
-        this.submissionRepository = submissionRepository;
-        this.mistakeRepository = mistakeRepository;
-        this.weaknessRepository = weaknessRepository;
-        this.userRepository = userRepository;
+    @Override
+    @Transactional(readOnly = true)
+    public DashboardSummaryResponse getSummary() {
+        return getSummary(securityUtils.getAuthenticatedUserId());
     }
 
     @Override
     @Transactional(readOnly = true)
     public DashboardSummaryResponse getSummary(Long userId) {
-        Long resolvedUserId = resolveUserId(userId);
+        Long resolvedUserId = resolveTargetUserId(userId);
 
         List<Submission> userSubmissions = submissionRepository.findByUserIdOrderBySubmittedAtDesc(resolvedUserId);
         List<Weakness> userWeaknesses = weaknessRepository.findByUserIdOrderByFrequencyDesc(resolvedUserId);
@@ -68,29 +68,42 @@ public class DashboardServiceImpl implements DashboardService {
                 .mapToLong(Weakness::getFrequency)
                 .sum();
 
-        String weakestConcept = "Boundary Management";
-        String strongestConcept = "Dynamic Programming";
-        int currentMastery = 74;
+        // Fresh user defaults: strict 0 and "—"
+        String weakestConcept = "—";
+        String strongestConcept = "—";
+        int currentMastery = 0;
 
         if (!userWeaknesses.isEmpty()) {
             weakestConcept = userWeaknesses.get(0).getConcept();
 
-            userWeaknesses.stream()
+            // Find concept with highest mastery score
+            strongestConcept = userWeaknesses.stream()
                     .max(Comparator.comparingDouble(w -> w.getMasteryScore() != null ? w.getMasteryScore() : 50.0))
-                    .ifPresent(w -> {});
+                    .map(Weakness::getConcept)
+                    .orElse("—");
 
             double avgMastery = userWeaknesses.stream()
-                    .mapToDouble(w -> w.getMasteryScore() != null ? w.getMasteryScore() : 70.0)
+                    .mapToDouble(w -> w.getMasteryScore() != null ? w.getMasteryScore() : 50.0)
                     .average()
-                    .orElse(74.0);
+                    .orElse(0.0);
             currentMastery = (int) Math.round(avgMastery);
+        } else if (problemsAttempted > 0) {
+            // User attempted problems but has no recurring weaknesses yet
+            if (problemsAccepted > 0) {
+                currentMastery = (int) Math.round(((double) problemsAccepted / problemsAttempted) * 100);
+                strongestConcept = userSubmissions.stream()
+                        .filter(s -> s.getResult() == SubmissionResult.ACCEPTED)
+                        .findFirst()
+                        .map(s -> !s.getProblem().getTopics().isEmpty() ? s.getProblem().getTopics().get(0) : s.getProblem().getTitle())
+                        .orElse("—");
+            }
         }
 
         return DashboardSummaryResponse.builder()
-                .problemsAttempted(problemsAttempted > 0 ? problemsAttempted : 18)
-                .problemsAccepted(problemsAccepted > 0 ? problemsAccepted : 11)
-                .totalMistakes(totalMistakes > 0 ? totalMistakes : 12)
-                .recurringMistakes(recurringMistakes > 0 ? recurringMistakes : 5)
+                .problemsAttempted(problemsAttempted)
+                .problemsAccepted(problemsAccepted)
+                .totalMistakes(totalMistakes)
+                .recurringMistakes(recurringMistakes)
                 .strongestConcept(strongestConcept)
                 .weakestConcept(weakestConcept)
                 .currentMastery(currentMastery)
@@ -99,34 +112,68 @@ public class DashboardServiceImpl implements DashboardService {
 
     @Override
     @Transactional(readOnly = true)
+    public List<TrendResponse> getTrends() {
+        return getTrends(securityUtils.getAuthenticatedUserId());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public List<TrendResponse> getTrends(Long userId) {
-        // Timeline trends showing historical error reduction
-        return List.of(
-                TrendResponse.builder().period("Aug 2026").boundary(7).complexity(4).edgeCase(3).total(14).build(),
-                TrendResponse.builder().period("Sep 2026").boundary(5).complexity(3).edgeCase(2).total(10).build(),
-                TrendResponse.builder().period("Oct 2026").boundary(2).complexity(1).edgeCase(1).total(4).build()
-        );
+        Long resolvedUserId = resolveTargetUserId(userId);
+        List<Mistake> mistakes = mistakeRepository.findByUserId(resolvedUserId);
+
+        if (mistakes.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        // Group mistakes by YearMonth to compute real longitudinal trends
+        DateTimeFormatter displayFormatter = DateTimeFormatter.ofPattern("MMM yyyy");
+        Map<YearMonth, List<Mistake>> byMonth = mistakes.stream()
+                .collect(Collectors.groupingBy(m -> {
+                    LocalDateTime dt = m.getCreatedAt() != null ? m.getCreatedAt() : LocalDateTime.now();
+                    return YearMonth.from(dt);
+                }, TreeMap::new, Collectors.toList()));
+
+        List<TrendResponse> trends = new ArrayList<>();
+        for (Map.Entry<YearMonth, List<Mistake>> entry : byMonth.entrySet()) {
+            List<Mistake> monthMistakes = entry.getValue();
+            long total = monthMistakes.size();
+            long boundary = monthMistakes.stream()
+                    .filter(m -> m.getCategory() == MistakeCategory.BOUNDARY_ERROR || m.getCategory() == MistakeCategory.OFF_BY_ONE_ERROR)
+                    .count();
+            long complexity = monthMistakes.stream()
+                    .filter(m -> m.getCategory() == MistakeCategory.COMPLEXITY_ERROR)
+                    .count();
+            long edgeCase = monthMistakes.stream()
+                    .filter(m -> m.getCategory() == MistakeCategory.EDGE_CASE_ERROR || m.getCategory() == MistakeCategory.NULL_OR_EMPTY_INPUT_ERROR)
+                    .count();
+
+            trends.add(TrendResponse.builder()
+                    .period(entry.getKey().format(displayFormatter))
+                    .boundary(boundary)
+                    .complexity(complexity)
+                    .edgeCase(edgeCase)
+                    .total(total)
+                    .build());
+        }
+
+        return trends;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<MistakeProfileItemResponse> getMistakeProfile() {
+        return getMistakeProfile(securityUtils.getAuthenticatedUserId());
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<MistakeProfileItemResponse> getMistakeProfile(Long userId) {
-        Long resolvedUserId = resolveUserId(userId);
-        List<Submission> userSubmissions = submissionRepository.findByUserIdOrderBySubmittedAtDesc(resolvedUserId);
-
-        List<Mistake> mistakes = userSubmissions.stream()
-                .flatMap(s -> mistakeRepository.findBySubmissionId(s.getId()).stream())
-                .toList();
+        Long resolvedUserId = resolveTargetUserId(userId);
+        List<Mistake> mistakes = mistakeRepository.findByUserId(resolvedUserId);
 
         if (mistakes.isEmpty()) {
-            // Default canonical profile from seed
-            return List.of(
-                    MistakeProfileItemResponse.builder().category(MistakeCategory.BOUNDARY_ERROR).label("Boundary Management").count(5).percentage(38).color("#f43f5e").build(),
-                    MistakeProfileItemResponse.builder().category(MistakeCategory.COMPLEXITY_ERROR).label("Time Complexity (TLE)").count(3).percentage(23).color("#f59e0b").build(),
-                    MistakeProfileItemResponse.builder().category(MistakeCategory.GRAPH_VISITED_ERROR).label("Graph Visited State").count(2).percentage(15).color("#a855f7").build(),
-                    MistakeProfileItemResponse.builder().category(MistakeCategory.EDGE_CASE_ERROR).label("Edge Case Omission").count(2).percentage(15).color("#06b6d4").build(),
-                    MistakeProfileItemResponse.builder().category(MistakeCategory.OFF_BY_ONE_ERROR).label("Off By One Indexing").count(1).percentage(9).color("#818cf8").build()
-            );
+            return Collections.emptyList();
         }
 
         long total = mistakes.size();
@@ -154,9 +201,14 @@ public class DashboardServiceImpl implements DashboardService {
         return result;
     }
 
-    private Long resolveUserId(Long userId) {
-        if (userId != null) return userId;
-        return userRepository.findAll().stream().findFirst().map(u -> u.getId()).orElse(1L);
+    private Long resolveTargetUserId(Long userId) {
+        Long authUserId = securityUtils.getAuthenticatedUserId();
+        // Strict isolation: if a client requests a specific userId, it must match the authenticated principal
+        if (userId != null && !userId.equals(authUserId)) {
+            log.warn("Cross-user access blocked: Authenticated user #{} requested data for user #{}", authUserId, userId);
+            return authUserId; // Never allow accessing another user's private data
+        }
+        return authUserId;
     }
 
     private String formatCategoryLabel(MistakeCategory category) {

@@ -49,7 +49,8 @@ class FaissVectorMemory:
         text: str,
         category: MistakeCategory,
         problem_title: str,
-        topics: Optional[List[str]] = None
+        topics: Optional[List[str]] = None,
+        user_id: Optional[str] = None
     ) -> int:
         """
         Embeds mistake explanation and stores vector in FAISS/NumPy along with metadata.
@@ -72,7 +73,8 @@ class FaissVectorMemory:
             "text": text,
             "category": category,
             "problem_title": problem_title,
-            "topics": topics or []
+            "topics": topics or [],
+            "user_id": str(user_id) if user_id is not None else None
         }
         self.metadata.append(meta)
         return idx
@@ -81,18 +83,20 @@ class FaissVectorMemory:
         self,
         query_text: str,
         top_k: int = 5,
-        threshold: float = 0.65
+        threshold: float = 0.65,
+        user_id: Optional[str] = None
     ) -> List[SimilarMistakeItem]:
         """
         Searches vector store for semantic matches above the similarity threshold.
         Inner product on unit L2-normalized vectors is mathematically identical to cosine similarity.
+        When user_id is provided, only retrieves that user's personal mistake memories.
         """
         total = self.count()
         if total == 0 or not query_text or not query_text.strip():
             return []
 
         query_vec = self.embedder.generate_embedding(query_text)
-        k = min(top_k, total)
+        k = min(top_k * 2 if user_id is not None else top_k, total)
 
         if self.has_faiss:
             query_2d = np.expand_dims(query_vec, axis=0).astype(np.float32)
@@ -110,6 +114,11 @@ class FaissVectorMemory:
         for sim, idx in zip(sim_list, idx_list):
             if idx != -1 and sim >= threshold and idx < len(self.metadata):
                 m = self.metadata[idx]
+                # User data isolation: ensure matches belong strictly to the requested user
+                if user_id is not None:
+                    m_user = m.get("user_id")
+                    if m_user is None or str(m_user) != str(user_id):
+                        continue
                 matches.append(SimilarMistakeItem(
                     mistakeId=str(m["mistake_id"]),
                     text=m["text"],
@@ -118,5 +127,7 @@ class FaissVectorMemory:
                     problemTitle=m["problem_title"],
                     topics=m["topics"]
                 ))
+                if len(matches) >= top_k:
+                    break
 
         return matches

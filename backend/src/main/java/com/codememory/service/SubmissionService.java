@@ -8,6 +8,7 @@ import java.util.List;
 public interface SubmissionService {
     SubmissionResponse createSubmission(SubmissionRequest request);
     SubmissionResponse getSubmissionById(Long id);
+    List<SubmissionResponse> getSubmissionsForCurrentUser();
     List<SubmissionResponse> getSubmissionsByUserId(Long userId);
     List<SubmissionResponse> getAllSubmissions();
 }

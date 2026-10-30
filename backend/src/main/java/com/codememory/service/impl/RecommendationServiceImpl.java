@@ -1,5 +1,6 @@
 package com.codememory.service.impl;
 
+import com.codememory.config.SecurityUtils;
 import com.codememory.dto.RecommendationResponse;
 import com.codememory.dto.TodaysFocusResponse;
 import com.codememory.entity.Problem;
@@ -19,11 +20,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 @Service
+@RequiredArgsConstructor
 @Slf4j
 public class RecommendationServiceImpl implements RecommendationService {
 
@@ -31,25 +31,20 @@ public class RecommendationServiceImpl implements RecommendationService {
     private final ProblemRepository problemRepository;
     private final WeaknessRepository weaknessRepository;
     private final SubmissionRepository submissionRepository;
-    private final com.codememory.repository.UserRepository userRepository;
+    private final SecurityUtils securityUtils;
 
-    public RecommendationServiceImpl(
-            RecommendationRepository recommendationRepository,
-            ProblemRepository problemRepository,
-            WeaknessRepository weaknessRepository,
-            SubmissionRepository submissionRepository,
-            com.codememory.repository.UserRepository userRepository) {
-        this.recommendationRepository = recommendationRepository;
-        this.problemRepository = problemRepository;
-        this.weaknessRepository = weaknessRepository;
-        this.submissionRepository = submissionRepository;
-        this.userRepository = userRepository;
+    @Override
+    @Transactional(readOnly = true)
+    public List<RecommendationResponse> getRecommendationsForCurrentUser() {
+        return getRecommendationsForUser(securityUtils.getAuthenticatedUserId());
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<RecommendationResponse> getRecommendationsForUser(Long userId) {
-        Long targetUserId = (userId != null) ? userId : resolveDefaultUserId();
+        Long currentUserId = securityUtils.getAuthenticatedUserId();
+        Long targetUserId = (userId != null && userId.equals(currentUserId)) ? userId : currentUserId;
+
         return recommendationRepository.findByUserIdOrderByCreatedAtDesc(targetUserId)
                 .stream()
                 .map(this::mapToResponse)
@@ -58,19 +53,27 @@ public class RecommendationServiceImpl implements RecommendationService {
 
     @Override
     @Transactional(readOnly = true)
+    public TodaysFocusResponse getTodaysFocusForCurrentUser() {
+        return getTodaysFocus(securityUtils.getAuthenticatedUserId());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public TodaysFocusResponse getTodaysFocus(Long userId) {
-        Long targetUserId = (userId != null) ? userId : resolveDefaultUserId();
+        Long currentUserId = securityUtils.getAuthenticatedUserId();
+        Long targetUserId = (userId != null && userId.equals(currentUserId)) ? userId : currentUserId;
+
         List<Weakness> weaknesses = weaknessRepository.findByUserIdOrderByFrequencyDesc(targetUserId);
 
         if (weaknesses.isEmpty()) {
             return TodaysFocusResponse.builder()
-                    .weakness("General Algorithmic Foundations")
-                    .why("No high-frequency mistakes detected yet. Continue practicing standard LeetCode problems.")
+                    .weakness("—")
+                    .why("No recurring error patterns detected yet. Complete LeetCode problem attempts to trigger personalized practice recommendations.")
                     .recommendedProblems(List.of())
                     .build();
         }
 
-        // Top recurring weakness
+        // Top recurring weakness for this authenticated user
         Weakness topWeakness = weaknesses.get(0);
 
         List<RecommendationResponse> recommendedProblems = recommendationRepository
@@ -80,11 +83,6 @@ public class RecommendationServiceImpl implements RecommendationService {
                 .map(this::mapToResponse)
                 .toList();
 
-        // If no recommendations currently active for top weakness, generate them
-        if (recommendedProblems.isEmpty()) {
-            recommendedProblems = generateFallbackRecommendations(topWeakness);
-        }
-
         String whyExplanation = String.format(
                 "You have made %d %s mistake%s across %s problems. Your current mastery is %.0f%%. " +
                 "Targeted practice is recommended to eliminate this specific failure mode.",
@@ -92,7 +90,7 @@ public class RecommendationServiceImpl implements RecommendationService {
                 topWeakness.getMistakeCategory().name().replace('_', ' ').toLowerCase(),
                 topWeakness.getFrequency() > 1 ? "s" : "",
                 topWeakness.getConcept(),
-                topWeakness.getMasteryScore() != null ? topWeakness.getMasteryScore() : 70.0
+                topWeakness.getMasteryScore() != null ? topWeakness.getMasteryScore() : 50.0
         );
 
         return TodaysFocusResponse.builder()
@@ -110,14 +108,14 @@ public class RecommendationServiceImpl implements RecommendationService {
         User user = weakness.getUser();
         String concept = weakness.getConcept();
 
-        // Find candidate problems by matching topic or title
+        // Find candidate problems by matching topic or title from shared catalog
         List<Problem> candidates = problemRepository.findAll().stream()
                 .filter(p -> p.getTopics().stream().anyMatch(t -> t.equalsIgnoreCase(concept)) ||
                         p.getTitle().toLowerCase().contains(concept.toLowerCase()))
                 .toList();
 
         for (Problem problem : candidates) {
-            // Check if already solved with ACCEPTED
+            // Check if user already solved with ACCEPTED
             boolean alreadySolved = submissionRepository
                     .findByUserIdAndProblemIdOrderBySubmittedAtAsc(user.getId(), problem.getId())
                     .stream()
@@ -125,7 +123,7 @@ public class RecommendationServiceImpl implements RecommendationService {
 
             if (alreadySolved) continue;
 
-            // Check if recommendation already exists
+            // Check if recommendation already exists for this user
             boolean alreadyRecommended = recommendationRepository.findByUserIdOrderByCreatedAtDesc(user.getId())
                     .stream()
                     .anyMatch(r -> r.getProblem().getId().equals(problem.getId()) &&
@@ -168,7 +166,7 @@ public class RecommendationServiceImpl implements RecommendationService {
             // Boost weakness mastery score
             if (rec.getWeakness() != null) {
                 Weakness weakness = rec.getWeakness();
-                double currentMastery = weakness.getMasteryScore() != null ? weakness.getMasteryScore() : 70.0;
+                double currentMastery = weakness.getMasteryScore() != null ? weakness.getMasteryScore() : 50.0;
                 double newMastery = Math.min(100.0, currentMastery + 8.0);
                 weakness.setMasteryScore(newMastery);
                 weaknessRepository.save(weakness);
@@ -183,27 +181,14 @@ public class RecommendationServiceImpl implements RecommendationService {
         Recommendation recommendation = recommendationRepository.findById(recommendationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Recommendation not found with ID: " + recommendationId));
 
+        Long currentUserId = securityUtils.getAuthenticatedUserId();
+        if (!recommendation.getUser().getId().equals(currentUserId)) {
+            throw new ResourceNotFoundException("Recommendation not found with ID: " + recommendationId);
+        }
+
         recommendation.setStatus(status);
         Recommendation saved = recommendationRepository.save(recommendation);
         return mapToResponse(saved);
-    }
-
-    private List<RecommendationResponse> generateFallbackRecommendations(Weakness weakness) {
-        return problemRepository.findAll().stream()
-                .limit(3)
-                .map(p -> RecommendationResponse.builder()
-                        .weaknessId(weakness.getId())
-                        .weaknessConcept(weakness.getConcept())
-                        .problemId(p.getId())
-                        .leetcodeId(p.getLeetcodeId())
-                        .title(p.getTitle())
-                        .difficulty(p.getDifficulty())
-                        .topics(p.getTopics())
-                        .url(p.getUrl())
-                        .reason("Reinforce proper algorithm boundaries and state maintenance.")
-                        .status(RecommendationStatus.PENDING)
-                        .build())
-                .toList();
     }
 
     private RecommendationResponse mapToResponse(Recommendation rec) {
@@ -221,9 +206,5 @@ public class RecommendationServiceImpl implements RecommendationService {
                 .status(rec.getStatus())
                 .createdAt(rec.getCreatedAt())
                 .build();
-    }
-
-    private Long resolveDefaultUserId() {
-        return userRepository.findAll().stream().findFirst().map(u -> u.getId()).orElse(1L);
     }
 }

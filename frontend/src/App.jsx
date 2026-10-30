@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Navbar from './components/Navbar';
 import OverviewCards from './components/OverviewCards';
 import MistakeProfile from './components/MistakeProfile';
@@ -6,19 +6,36 @@ import WeaknessesList from './components/WeaknessesList';
 import TimelineTrends from './components/TimelineTrends';
 import Recommendations from './components/Recommendations';
 import SubmissionModal from './components/SubmissionModal';
+import AuthModal from './components/AuthModal';
 import { api } from './services/api';
+import { AlertCircle, RefreshCw } from 'lucide-react';
 import './App.css';
 
 export default function App() {
+  const [currentUser, setCurrentUser] = useState(() => api.getCurrentUser());
+  const [isAuthOpen, setIsAuthOpen] = useState(() => !api.isAuthenticated());
   const [summary, setSummary] = useState(null);
   const [mistakeProfile, setMistakeProfile] = useState([]);
   const [weaknesses, setWeaknesses] = useState([]);
   const [timeline, setTimeline] = useState([]);
   const [todaysFocus, setTodaysFocus] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState(null);
 
-  const loadDashboardData = async () => {
+  const loadDashboardData = useCallback(async () => {
+    if (!api.isAuthenticated()) {
+      setSummary(null);
+      setMistakeProfile([]);
+      setWeaknesses([]);
+      setTimeline([]);
+      setTodaysFocus(null);
+      return;
+    }
+
+    setLoading(true);
+    setErrorMessage(null);
+
     try {
       const [sumData, profData, weakData, timeData, focusData] = await Promise.all([
         api.getDashboardSummary(),
@@ -34,21 +51,74 @@ export default function App() {
       setTimeline(timeData);
       setTodaysFocus(focusData);
     } catch (err) {
-      console.error('Error loading CodeMemory dashboard:', err);
+      if (err.message === 'UNAUTHORIZED') {
+        setCurrentUser(null);
+        setIsAuthOpen(true);
+      } else {
+        console.error('Error loading Error2Expert dashboard:', err);
+        setErrorMessage('Unable to connect to Error2Expert backend. Please ensure services are running.');
+      }
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
+    if (api.isAuthenticated()) {
+      loadDashboardData();
+    }
+  }, [loadDashboardData]);
+
+  const handleLoginSuccess = (userData) => {
+    setCurrentUser(userData);
+    setIsAuthOpen(false);
     loadDashboardData();
-  }, []);
+  };
+
+  const handleLogout = () => {
+    api.logout();
+    setCurrentUser(null);
+    setSummary(null);
+    setMistakeProfile([]);
+    setWeaknesses([]);
+    setTimeline([]);
+    setTodaysFocus(null);
+    setIsAuthOpen(true);
+  };
 
   return (
     <div className="app-wrapper">
-      <Navbar onOpenSubmissionModal={() => setIsModalOpen(true)} />
+      <Navbar
+        user={currentUser}
+        onLogout={handleLogout}
+        onOpenAuthModal={() => setIsAuthOpen(true)}
+        onOpenSubmissionModal={() => {
+          if (!api.isAuthenticated()) {
+            setIsAuthOpen(true);
+          } else {
+            setIsModalOpen(true);
+          }
+        }}
+      />
 
       <main className="main-content">
+        {errorMessage && (
+          <div className="status-banner error" style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <AlertCircle size={16} />
+              <span>{errorMessage}</span>
+            </div>
+            <button
+              onClick={loadDashboardData}
+              className="btn-secondary btn-sm"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '4px 10px' }}
+            >
+              <RefreshCw size={12} className={loading ? 'pulsing-indicator' : ''} />
+              <span>Retry</span>
+            </button>
+          </div>
+        )}
+
         {/* Section 20.1: Longitudinal Overview & Mastery Gauge */}
         <section aria-label="Dashboard Overview">
           <OverviewCards summary={summary} />
@@ -87,6 +157,17 @@ export default function App() {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onSuccess={loadDashboardData}
+      />
+
+      {/* Authentication Modal (Sign In / Register) */}
+      <AuthModal
+        isOpen={isAuthOpen}
+        onClose={() => {
+          if (api.isAuthenticated()) {
+            setIsAuthOpen(false);
+          }
+        }}
+        onSuccess={handleLoginSuccess}
       />
     </div>
   );

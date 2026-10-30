@@ -1,7 +1,8 @@
 /**
- * CodeMemory API Service
- * Handles communication with the Spring Boot backend (http://localhost:8080/api)
- * Provides automatic fallback to initial seed dataset when backend is booting or hermetic.
+ * Error2Expert API Service
+ * Handles authenticated communication with the Spring Boot backend.
+ * Enforces multi-user isolation by resolving data strictly for the authenticated JWT user.
+ * ZERO fake demo fallbacks; real database responses only.
  */
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 
@@ -9,132 +10,14 @@ const API_BASE_URL = import.meta.env.VITE_API_URL ||
     ? `${window.location.origin}/api`
     : 'http://localhost:8080/api');
 
-// Canonical fallback data adhering directly to database/seed.sql and CodeMemory_Project_Plan.md
-const FALLBACK_DASHBOARD_DATA = {
-  summary: {
-    problemsAttempted: 18,
-    problemsAccepted: 11,
-    totalMistakes: 12,
-    recurringMistakes: 5,
-    strongestConcept: "Dynamic Programming",
-    weakestConcept: "Boundary Management",
-    currentMastery: 74,
-  },
-  mistakeProfile: [
-    { category: "BOUNDARY_ERROR", label: "Boundary Management", count: 5, percentage: 38, color: "#f43f5e" },
-    { category: "TIME_LIMIT_EXCEEDED", label: "Time Complexity (TLE)", count: 3, percentage: 23, color: "#f59e0b" },
-    { category: "GRAPH_VISITED_ERROR", label: "Graph Visited State", count: 2, percentage: 15, color: "#a855f7" },
-    { category: "EDGE_CASE_HANDLING", label: "Edge Case Omission", count: 2, percentage: 15, color: "#06b6d4" },
-    { category: "OFF_BY_ONE", label: "Off By One Indexing", count: 1, percentage: 9, color: "#818cf8" },
-  ],
-  weaknesses: [
-    {
-      id: 1,
-      concept: "Boundary Management",
-      mistakeCategory: "BOUNDARY_ERROR",
-      severity: "HIGH",
-      frequency: 5,
-      confidence: 0.94,
-      masteryScore: 48,
-      status: "RECURRING_ACROSS_PROBLEMS",
-      firstObserved: "2026-09-15",
-      lastObserved: "2026-10-14",
-      description: "Repeated failure to handle upper/lower search bounds correctly in Binary Search & Two Pointers (high = mid vs mid - 1).",
-      affectedProblems: ["Binary Search", "Find First and Last Position", "Search Insert Position"]
-    },
-    {
-      id: 2,
-      concept: "Time Complexity Misconception",
-      mistakeCategory: "TIME_LIMIT_EXCEEDED",
-      severity: "MEDIUM",
-      frequency: 3,
-      confidence: 0.88,
-      masteryScore: 65,
-      status: "RECURRING",
-      firstObserved: "2026-09-22",
-      lastObserved: "2026-10-10",
-      description: "Defaulting to O(N^2) nested scan instead of O(N) hash-map or two-pointer two-pass optimal strategy.",
-      affectedProblems: ["Two Sum", "3Sum", "Subarray Sum Equals K"]
-    },
-    {
-      id: 3,
-      concept: "Graph Visited State",
-      mistakeCategory: "GRAPH_VISITED_ERROR",
-      severity: "MEDIUM",
-      frequency: 2,
-      confidence: 0.82,
-      masteryScore: 70,
-      status: "EMERGING_PATTERN",
-      firstObserved: "2026-10-01",
-      lastObserved: "2026-10-08",
-      description: "Pushing adjacent nodes to BFS queue before marking them visited, creating redundant cycle loops.",
-      affectedProblems: ["Number of Islands", "Clone Graph"]
-    },
-    {
-      id: 4,
-      concept: "DP Base Cases",
-      mistakeCategory: "DP_BASE_CASE_ERROR",
-      severity: "IMPROVING",
-      frequency: 1,
-      confidence: 0.72,
-      masteryScore: 88,
-      status: "IMPROVING",
-      firstObserved: "2026-09-02",
-      lastObserved: "2026-09-28",
-      description: "Sub-problem base initialization for length 0 strings. Successfully corrected in last 3 attempts.",
-      affectedProblems: ["Longest Palindromic Substring", "Coin Change"]
-    }
-  ],
-  timeline: [
-    { period: "Aug 2026", boundary: 7, complexity: 4, edgeCase: 3, total: 14 },
-    { period: "Sep 2026", boundary: 5, complexity: 3, edgeCase: 2, total: 10 },
-    { period: "Oct 2026", boundary: 2, complexity: 1, edgeCase: 1, total: 4 },
-  ],
-  todaysFocus: {
-    weakness: "Boundary Management",
-    why: "You made 5 boundary-related mistakes across binary-search and two-pointer problems. Your weakness is boundary update logic (mid ± 1), not binary search itself.",
-    recommendedProblems: [
-      {
-        id: "704",
-        title: "Binary Search",
-        difficulty: "EASY",
-        topics: ["Binary Search", "Array"],
-        url: "https://leetcode.com/problems/binary-search/",
-        reason: "Practice exact loop invariant termination (left <= right vs left < right)."
-      },
-      {
-        id: "35",
-        title: "Search Insert Position",
-        difficulty: "EASY",
-        topics: ["Binary Search", "Array"],
-        url: "https://leetcode.com/problems/search-insert-position/",
-        reason: "Reinforce returning left pointer upon target absence without boundary overshoot."
-      },
-      {
-        id: "153",
-        title: "Find Minimum in Rotated Sorted Array",
-        difficulty: "MEDIUM",
-        topics: ["Binary Search", "Array"],
-        url: "https://leetcode.com/problems/find-minimum-in-rotated-sorted-array/",
-        reason: "Sharpen unsymmetric boundary convergence (right = mid vs right = mid - 1)."
-      },
-      {
-        id: "33",
-        title: "Search in Rotated Sorted Array",
-        difficulty: "MEDIUM",
-        topics: ["Binary Search", "Array"],
-        url: "https://leetcode.com/problems/search-in-rotated-sorted-array/",
-        reason: "Multi-condition boundary partitioning under shifted pivots."
-      }
-    ]
-  }
-};
-
 const ML_API_BASE_URL = import.meta.env.VITE_ML_API_URL || 'http://localhost:8000';
 
 function getAuthHeaders() {
   const token = localStorage.getItem('codememory_token');
-  const headers = { 'Content-Type': 'application/json' };
+  const headers = { 
+    'Content-Type': 'application/json',
+    'Accept': 'application/json'
+  };
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
@@ -147,28 +30,34 @@ export const api = {
     const res = await fetch(`${API_BASE_URL}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email: email.trim(), password }),
     });
     const json = await res.json();
-    if (json.success && json.data?.token) {
+    if (!res.ok || !json.success) {
+      throw new Error(json.message || 'Login failed. Please check your credentials.');
+    }
+    if (json.data?.token) {
       localStorage.setItem('codememory_token', json.data.token);
       localStorage.setItem('codememory_user', JSON.stringify(json.data));
     }
-    return json;
+    return json.data;
   },
 
   async register(name, email, password) {
     const res = await fetch(`${API_BASE_URL}/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, email, password }),
+      body: JSON.stringify({ name: name.trim(), email: email.trim(), password }),
     });
     const json = await res.json();
-    if (json.success && json.data?.token) {
+    if (!res.ok || !json.success) {
+      throw new Error(json.message || 'Registration failed. Email may already be in use.');
+    }
+    if (json.data?.token) {
       localStorage.setItem('codememory_token', json.data.token);
       localStorage.setItem('codememory_user', JSON.stringify(json.data));
     }
-    return json;
+    return json.data;
   },
 
   logout() {
@@ -178,71 +67,86 @@ export const api = {
 
   getCurrentUser() {
     try {
-      return JSON.parse(localStorage.getItem('codememory_user')) || { name: 'Boopana (Demo)', email: 'boopana@example.com' };
+      const stored = localStorage.getItem('codememory_user');
+      return stored ? JSON.parse(stored) : null;
     } catch {
-      return { name: 'Boopana (Demo)', email: 'boopana@example.com' };
+      return null;
     }
   },
 
-  // --- Dashboard APIs ---
+  isAuthenticated() {
+    return Boolean(localStorage.getItem('codememory_token'));
+  },
+
+  // --- Dashboard APIs (Scoped strictly to Authenticated JWT) ---
   async getDashboardSummary() {
-    try {
-      const res = await fetch(`${API_BASE_URL}/dashboard/summary`, {
-        headers: getAuthHeaders(),
-      });
-      if (!res.ok) throw new Error('Network error');
-      return await res.json();
-    } catch {
-      return FALLBACK_DASHBOARD_DATA.summary;
+    const res = await fetch(`${API_BASE_URL}/dashboard/summary`, {
+      headers: getAuthHeaders(),
+    });
+    if (res.status === 401) {
+      this.logout();
+      throw new Error('UNAUTHORIZED');
     }
+    if (!res.ok) {
+      throw new Error(`Failed to load summary (HTTP ${res.status})`);
+    }
+    return await res.json();
   },
 
   async getMistakeProfile() {
-    try {
-      const res = await fetch(`${API_BASE_URL}/dashboard/profile`, {
-        headers: getAuthHeaders(),
-      });
-      if (!res.ok) throw new Error('Network error');
-      return await res.json();
-    } catch {
-      return FALLBACK_DASHBOARD_DATA.mistakeProfile;
+    const res = await fetch(`${API_BASE_URL}/dashboard/profile`, {
+      headers: getAuthHeaders(),
+    });
+    if (res.status === 401) {
+      this.logout();
+      throw new Error('UNAUTHORIZED');
     }
+    if (!res.ok) {
+      throw new Error(`Failed to load mistake profile (HTTP ${res.status})`);
+    }
+    return await res.json();
   },
 
   async getWeaknesses() {
-    try {
-      const res = await fetch(`${API_BASE_URL}/weaknesses`, {
-        headers: getAuthHeaders(),
-      });
-      if (!res.ok) throw new Error('Network error');
-      return await res.json();
-    } catch {
-      return FALLBACK_DASHBOARD_DATA.weaknesses;
+    const res = await fetch(`${API_BASE_URL}/weaknesses`, {
+      headers: getAuthHeaders(),
+    });
+    if (res.status === 401) {
+      this.logout();
+      throw new Error('UNAUTHORIZED');
     }
+    if (!res.ok) {
+      throw new Error(`Failed to load weaknesses (HTTP ${res.status})`);
+    }
+    return await res.json();
   },
 
   async getTimeline() {
-    try {
-      const res = await fetch(`${API_BASE_URL}/dashboard/trends`, {
-        headers: getAuthHeaders(),
-      });
-      if (!res.ok) throw new Error('Network error');
-      return await res.json();
-    } catch {
-      return FALLBACK_DASHBOARD_DATA.timeline;
+    const res = await fetch(`${API_BASE_URL}/dashboard/trends`, {
+      headers: getAuthHeaders(),
+    });
+    if (res.status === 401) {
+      this.logout();
+      throw new Error('UNAUTHORIZED');
     }
+    if (!res.ok) {
+      throw new Error(`Failed to load timeline (HTTP ${res.status})`);
+    }
+    return await res.json();
   },
 
   async getTodaysFocus() {
-    try {
-      const res = await fetch(`${API_BASE_URL}/recommendations/today`, {
-        headers: getAuthHeaders(),
-      });
-      if (!res.ok) throw new Error('Network error');
-      return await res.json();
-    } catch {
-      return FALLBACK_DASHBOARD_DATA.todaysFocus;
+    const res = await fetch(`${API_BASE_URL}/recommendations/today`, {
+      headers: getAuthHeaders(),
+    });
+    if (res.status === 401) {
+      this.logout();
+      throw new Error('UNAUTHORIZED');
     }
+    if (!res.ok) {
+      throw new Error(`Failed to load recommendations (HTTP ${res.status})`);
+    }
+    return await res.json();
   },
 
   async submitAttempt(payload) {
@@ -251,10 +155,11 @@ export const api = {
       headers: getAuthHeaders(),
       body: JSON.stringify(payload),
     });
-    if (!res.ok) {
-      throw new Error(`Submission failed with status: ${res.status}`);
+    const json = await res.json();
+    if (!res.ok || !json.success) {
+      throw new Error(json.message || `Submission failed with status: ${res.status}`);
     }
-    return await res.json();
+    return json.data;
   },
 
   // --- ML Advanced Analysis APIs ---

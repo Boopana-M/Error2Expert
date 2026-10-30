@@ -10,7 +10,9 @@ import com.codememory.entity.enums.RecommendationStatus;
 import java.util.List;
 
 public interface RecommendationService {
+    List<RecommendationResponse> getRecommendationsForCurrentUser();
     List<RecommendationResponse> getRecommendationsForUser(Long userId);
+    TodaysFocusResponse getTodaysFocusForCurrentUser();
     TodaysFocusResponse getTodaysFocus(Long userId);
     void generateRecommendationsForWeakness(Weakness weakness);
     void processSolvedProblemFeedback(User user, Problem problem);

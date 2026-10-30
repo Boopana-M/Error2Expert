@@ -4,14 +4,20 @@ import com.codememory.dto.SubmissionRequest;
 import com.codememory.dto.SubmissionResponse;
 import com.codememory.dto.TodaysFocusResponse;
 import com.codememory.dto.WeaknessResponse;
+import com.codememory.entity.User;
 import com.codememory.entity.enums.SubmissionResult;
+import com.codememory.repository.UserRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collections;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -29,6 +35,25 @@ class RecommendationFeedbackLoopTest {
 
     @Autowired
     private RecommendationService recommendationService;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    private User testUser;
+
+    @BeforeEach
+    void setUp() {
+        testUser = userRepository.save(User.builder()
+                .name("Feedback Tester")
+                .email("feedback@example.com")
+                .passwordHash("hashed")
+                .build());
+
+        UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
+                testUser.getEmail(), null, Collections.emptyList()
+        );
+        SecurityContextHolder.getContext().setAuthentication(auth);
+    }
 
     @Test
     @DisplayName("Should detect recurring weakness and generate targeted recommendations on repeat failures")
@@ -56,7 +81,7 @@ class RecommendationFeedbackLoopTest {
         submissionService.createSubmission(attempt2);
 
         // Verify weakness is tracked with frequency >= 2
-        List<WeaknessResponse> weaknesses = weaknessService.getWeaknessesForUser(null);
+        List<WeaknessResponse> weaknesses = weaknessService.getWeaknessesForCurrentUser();
         assertThat(weaknesses).isNotEmpty();
 
         WeaknessResponse boundaryWeakness = weaknesses.stream()
@@ -68,7 +93,7 @@ class RecommendationFeedbackLoopTest {
         assertThat(boundaryWeakness.getFrequency()).isGreaterThanOrEqualTo(2);
 
         // Verify Today's Focus provides targeted problem curriculum
-        TodaysFocusResponse focus = recommendationService.getTodaysFocus(null);
+        TodaysFocusResponse focus = recommendationService.getTodaysFocusForCurrentUser();
         assertThat(focus).isNotNull();
         assertThat(focus.getWeakness()).isEqualTo("Binary Search");
         assertThat(focus.getWhy()).contains("mistake");
@@ -101,7 +126,7 @@ class RecommendationFeedbackLoopTest {
         assertThat(passResponse.getResult()).isEqualTo(SubmissionResult.ACCEPTED);
 
         // Verify weakness mastery is healthy
-        List<WeaknessResponse> weaknesses = weaknessService.getWeaknessesForUser(null);
+        List<WeaknessResponse> weaknesses = weaknessService.getWeaknessesForCurrentUser();
         assertThat(weaknesses).isNotEmpty();
     }
 }

@@ -13,24 +13,22 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/mistakes")
 @CrossOrigin(origins = "*")
+@RequiredArgsConstructor
 public class MistakeController {
 
     private final MistakeService mistakeService;
     private final DashboardService dashboardService;
 
-    public MistakeController(MistakeService mistakeService, DashboardService dashboardService) {
-        this.mistakeService = mistakeService;
-        this.dashboardService = dashboardService;
-    }
-
     @GetMapping
     public ResponseEntity<List<MistakeResponse>> getAllMistakes(@RequestParam(required = false) Long userId) {
-        return ResponseEntity.ok(mistakeService.getAllMistakes(userId));
+        // Enforce user isolation: always returns authenticated user's mistakes
+        return ResponseEntity.ok(mistakeService.getAllMistakes());
     }
 
     @GetMapping("/profile")
     public ResponseEntity<List<MistakeProfileItemResponse>> getMistakeProfile(@RequestParam(required = false) Long userId) {
-        return ResponseEntity.ok(dashboardService.getMistakeProfile(userId));
+        // Enforce user isolation: always returns authenticated user's profile
+        return ResponseEntity.ok(dashboardService.getMistakeProfile());
     }
 
     @GetMapping("/categories")

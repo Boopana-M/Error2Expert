@@ -18,10 +18,12 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional(readOnly = true)
     public UserResponse getCurrentUser(String email) {
-        User user = (email != null && !email.isBlank())
-                ? userRepository.findByEmail(email.toLowerCase())
-                    .orElseGet(this::getFallbackDefaultUser)
-                : getFallbackDefaultUser();
+        if (email == null || email.isBlank()) {
+            throw new ResourceNotFoundException("Missing email parameter for user lookup.");
+        }
+
+        User user = userRepository.findByEmail(email.toLowerCase())
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + email));
 
         return mapToResponse(user);
     }
@@ -32,11 +34,6 @@ public class UserServiceImpl implements UserService {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with ID: " + id));
         return mapToResponse(user);
-    }
-
-    private User getFallbackDefaultUser() {
-        return userRepository.findAll().stream().findFirst().orElseThrow(
-                () -> new ResourceNotFoundException("No user profile initialized in database."));
     }
 
     private UserResponse mapToResponse(User user) {

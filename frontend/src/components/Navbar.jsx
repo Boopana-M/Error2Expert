@@ -1,7 +1,9 @@
 import React from 'react';
-import { Brain, Cpu, Database, PlusCircle } from 'lucide-react';
+import { Brain, Cpu, Database, PlusCircle, LogOut, LogIn, User } from 'lucide-react';
 
-export default function Navbar({ onOpenSubmissionModal }) {
+export default function Navbar({ user, onLogout, onOpenAuthModal, onOpenSubmissionModal }) {
+  const initial = user?.name ? user.name.charAt(0).toUpperCase() : '?';
+
   return (
     <header className="navbar-container">
       <div className="navbar-left">
@@ -17,25 +19,52 @@ export default function Navbar({ onOpenSubmissionModal }) {
       <div className="navbar-right">
         <div className="engine-status" title="FAISS FlatIP L2 Unit-Vector Memory">
           <Database size={15} className="status-icon-purple" />
-          <span>FAISS Vector Memory: <strong className="text-purple">Active (384-d)</strong></span>
+          <span>Vector Memory: <strong className="text-purple">User-Isolated</strong></span>
         </div>
         <div className="engine-status" title="FastAPI Rule & Embedding Classifier">
           <Cpu size={15} className="status-icon-emerald" />
           <span>ML Service: <strong className="text-emerald">Online</strong></span>
         </div>
-        <div className="user-profile-badge" title="Active CodeMemory User">
-          <span className="user-avatar-circle">B</span>
-          <span className="user-name-label">Boopana</span>
-        </div>
-        <button
-          id="btn-quick-submit"
-          onClick={onOpenSubmissionModal}
-          className="btn-primary"
-          title="Simulate or Log a new LeetCode attempt"
-        >
-          <PlusCircle size={16} />
-          <span>Log Attempt</span>
-        </button>
+
+        {user ? (
+          <>
+            <div className="user-profile-badge" title={`Signed in as ${user.email}`}>
+              <span className="user-avatar-circle">{initial}</span>
+              <span className="user-name-label">{user.name}</span>
+            </div>
+
+            <button
+              id="btn-quick-submit"
+              onClick={onOpenSubmissionModal}
+              className="btn-primary"
+              title="Simulate or Log a new LeetCode attempt"
+            >
+              <PlusCircle size={16} />
+              <span>Log Attempt</span>
+            </button>
+
+            <button
+              id="btn-logout"
+              onClick={onLogout}
+              className="btn-secondary btn-sm"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#94a3b8' }}
+              title="Sign out of current account"
+            >
+              <LogOut size={14} />
+              <span>Logout</span>
+            </button>
+          </>
+        ) : (
+          <button
+            id="btn-open-auth"
+            onClick={onOpenAuthModal}
+            className="btn-primary"
+            title="Sign in or register a new user"
+          >
+            <LogIn size={16} />
+            <span>Sign In / Register</span>
+          </button>
+        )}
       </div>
     </header>
   );

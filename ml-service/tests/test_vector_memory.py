@@ -36,16 +36,43 @@ def test_endpoint_generate_embedding():
     assert data["dimension"] == 384
     assert len(data["embedding"]) == 384
 
-def test_endpoint_find_similar_mistakes():
+def test_endpoint_find_similar_mistakes_and_user_isolation():
+    # 1. Index mistake for user "user-alpha"
+    client.post("/index-mistake", json={
+        "userId": "user-alpha",
+        "mistakeId": "alpha-m1",
+        "text": "I set high = mid instead of mid - 1",
+        "category": MistakeCategory.BOUNDARY_ERROR.value,
+        "problemTitle": "Binary Search",
+        "topics": ["Binary Search", "Array"]
+    })
+
+    # 2. Query as user-alpha: should find the match
     query = "I set high = mid instead of mid - 1"
-    response = client.post("/find-similar-mistakes", json={"text": query, "topK": 3, "threshold": 0.65})
+    response = client.post("/find-similar-mistakes", json={"userId": "user-alpha", "text": query, "topK": 3, "threshold": 0.65})
     assert response.status_code == 200
     data = response.json()
     assert data["totalMatches"] >= 1
     assert any(m["category"] == MistakeCategory.BOUNDARY_ERROR.value for m in data["matches"])
 
+    # 3. User isolation test: a different user must NOT see user-alpha's mistake history
+    isolated_res = client.post("/find-similar-mistakes", json={"userId": "user-beta", "text": query, "topK": 3, "threshold": 0.65})
+    assert isolated_res.status_code == 200
+    assert isolated_res.json()["totalMatches"] == 0
+
 def test_endpoint_detect_recurring_cross_problem_pattern():
+    # Index prior mistake on Search in Rotated Sorted Array for user "pat-user"
+    client.post("/index-mistake", json={
+        "userId": "pat-user",
+        "mistakeId": "pat-m1",
+        "text": "High boundary was set to mid without subtracting 1",
+        "category": MistakeCategory.BOUNDARY_ERROR.value,
+        "problemTitle": "Search in Rotated Sorted Array",
+        "topics": ["Binary Search", "Array"]
+    })
+
     payload = {
+        "userId": "pat-user",
         "newMistake": "Low boundary was set to mid without adding 1",
         "category": MistakeCategory.BOUNDARY_ERROR.value,
         "problemTitle": "Search Insert Position",

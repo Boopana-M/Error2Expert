@@ -11,6 +11,7 @@ import java.util.List;
 @AllArgsConstructor
 @Builder
 public class MlAnalysisRequest {
+    private String userId;
     private String problemTitle;
     private List<String> topic;
     private String difficulty;

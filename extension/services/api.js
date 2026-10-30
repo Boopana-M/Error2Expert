@@ -35,19 +35,41 @@ export async function getDashboardUrl() {
   return DEFAULT_DASHBOARD_URL;
 }
 
+export async function getAuthToken() {
+  try {
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+      const res = await chrome.storage.local.get(['settings']);
+      if (res.settings && res.settings.authToken) {
+        let token = res.settings.authToken.trim();
+        if (token.startsWith('Bearer ')) token = token.substring(7).trim();
+        return token;
+      }
+    }
+  } catch (e) {
+    console.warn('Error reading authToken from storage:', e);
+  }
+  return null;
+}
+
 export const ExtensionApi = {
   /**
    * Posts submission and mistake explanation to Spring Boot backend
    */
   async submitAttempt(payload) {
     const baseUrl = await getBackendUrl();
+    const token = await getAuthToken();
     try {
+      const headers = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       const response = await fetch(`${baseUrl}/submissions`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
+        headers: headers,
         body: JSON.stringify(payload)
       });
 

@@ -31,6 +31,7 @@ class SubmissionResult(str, Enum):
     UNKNOWN = "UNKNOWN"
 
 class AttemptAnalysisRequest(BaseModel):
+    userId: Optional[str] = Field(default=None, description="Authenticated user ID for memory isolation")
     problemTitle: str = Field(..., description="Name of the coding problem")
     topic: Optional[List[str]] = Field(default=[], description="List of problem topic tags")
     difficulty: Optional[str] = Field(default="MEDIUM", description="Problem difficulty")
@@ -74,6 +75,7 @@ class SimilarMistakeItem(BaseModel):
     topics: List[str] = []
 
 class IndexMistakeRequest(BaseModel):
+    userId: Optional[str] = Field(default=None, description="Authenticated user ID for memory isolation")
     mistakeId: str
     text: str
     category: MistakeCategory
@@ -81,6 +83,7 @@ class IndexMistakeRequest(BaseModel):
     topics: List[str] = []
 
 class FindSimilarMistakesRequest(BaseModel):
+    userId: Optional[str] = Field(default=None, description="Authenticated user ID for memory isolation")
     text: str
     topK: Optional[int] = Field(default=5, description="Number of nearest neighbors to retrieve")
     threshold: Optional[float] = Field(default=0.70, description="Minimum cosine similarity threshold")
@@ -90,6 +93,7 @@ class FindSimilarMistakesResponse(BaseModel):
     totalMatches: int
 
 class PatternDetectionRequest(BaseModel):
+    userId: Optional[str] = Field(default=None, description="Authenticated user ID for memory isolation")
     newMistake: str
     category: MistakeCategory
     problemTitle: str

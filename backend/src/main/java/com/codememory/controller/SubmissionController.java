@@ -15,6 +15,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/submissions")
 @RequiredArgsConstructor
+@CrossOrigin(origins = "*")
 public class SubmissionController {
 
     private final SubmissionService submissionService;
@@ -29,9 +30,8 @@ public class SubmissionController {
     @GetMapping
     public ResponseEntity<ApiResponse<List<SubmissionResponse>>> getSubmissions(
             @RequestParam(required = false) Long userId) {
-        List<SubmissionResponse> responses = (userId != null)
-                ? submissionService.getSubmissionsByUserId(userId)
-                : submissionService.getAllSubmissions();
+        // Enforce user isolation: always returns authenticated user's submissions
+        List<SubmissionResponse> responses = submissionService.getSubmissionsForCurrentUser();
         return ResponseEntity.ok(ApiResponse.success("Submissions retrieved successfully", responses));
     }
 

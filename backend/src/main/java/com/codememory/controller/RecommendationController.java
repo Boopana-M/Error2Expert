@@ -13,22 +13,21 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/recommendations")
 @CrossOrigin(origins = "*")
+@RequiredArgsConstructor
 public class RecommendationController {
 
     private final RecommendationService recommendationService;
 
-    public RecommendationController(RecommendationService recommendationService) {
-        this.recommendationService = recommendationService;
-    }
-
     @GetMapping
     public ResponseEntity<List<RecommendationResponse>> getRecommendations(@RequestParam(required = false) Long userId) {
-        return ResponseEntity.ok(recommendationService.getRecommendationsForUser(userId));
+        // Enforce user isolation: always returns authenticated user's recommendations
+        return ResponseEntity.ok(recommendationService.getRecommendationsForCurrentUser());
     }
 
     @GetMapping("/today")
     public ResponseEntity<TodaysFocusResponse> getTodaysFocus(@RequestParam(required = false) Long userId) {
-        return ResponseEntity.ok(recommendationService.getTodaysFocus(userId));
+        // Enforce user isolation: always returns authenticated user's focus
+        return ResponseEntity.ok(recommendationService.getTodaysFocusForCurrentUser());
     }
 
     @PutMapping("/{id}/status")

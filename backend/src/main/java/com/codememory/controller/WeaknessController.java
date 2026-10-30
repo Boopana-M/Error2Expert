@@ -11,17 +11,15 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/weaknesses")
 @CrossOrigin(origins = "*")
+@RequiredArgsConstructor
 public class WeaknessController {
 
     private final WeaknessService weaknessService;
 
-    public WeaknessController(WeaknessService weaknessService) {
-        this.weaknessService = weaknessService;
-    }
-
     @GetMapping
     public ResponseEntity<List<WeaknessResponse>> getWeaknesses(@RequestParam(required = false) Long userId) {
-        return ResponseEntity.ok(weaknessService.getWeaknessesForUser(userId));
+        // Enforce user isolation: always returns authenticated user's weaknesses
+        return ResponseEntity.ok(weaknessService.getWeaknessesForCurrentUser());
     }
 
     @GetMapping("/{id}")

@@ -13,26 +13,26 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/dashboard")
 @CrossOrigin(origins = "*")
+@RequiredArgsConstructor
 public class DashboardController {
 
     private final DashboardService dashboardService;
 
-    public DashboardController(DashboardService dashboardService) {
-        this.dashboardService = dashboardService;
-    }
-
     @GetMapping("/summary")
     public ResponseEntity<DashboardSummaryResponse> getSummary(@RequestParam(required = false) Long userId) {
-        return ResponseEntity.ok(dashboardService.getSummary(userId));
+        // Enforce user isolation: always returns authenticated user's summary
+        return ResponseEntity.ok(dashboardService.getSummary());
     }
 
     @GetMapping("/trends")
     public ResponseEntity<List<TrendResponse>> getTrends(@RequestParam(required = false) Long userId) {
-        return ResponseEntity.ok(dashboardService.getTrends(userId));
+        // Enforce user isolation: always returns authenticated user's trends
+        return ResponseEntity.ok(dashboardService.getTrends());
     }
 
     @GetMapping("/profile")
     public ResponseEntity<List<MistakeProfileItemResponse>> getMistakeProfile(@RequestParam(required = false) Long userId) {
-        return ResponseEntity.ok(dashboardService.getMistakeProfile(userId));
+        // Enforce user isolation: always returns authenticated user's mistake profile
+        return ResponseEntity.ok(dashboardService.getMistakeProfile());
     }
 }

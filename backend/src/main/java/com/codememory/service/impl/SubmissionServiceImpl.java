@@ -1,20 +1,29 @@
 package com.codememory.service.impl;
 
+import com.codememory.config.SecurityUtils;
 import com.codememory.dto.MistakeResponse;
 import com.codememory.dto.SubmissionRequest;
 import com.codememory.dto.SubmissionResponse;
-import com.codememory.entity.*;
+import com.codememory.dto.ml.MlAnalysisRequest;
+import com.codememory.dto.ml.MlAnalysisResponse;
+import com.codememory.entity.Mistake;
+import com.codememory.entity.Problem;
+import com.codememory.entity.Submission;
+import com.codememory.entity.User;
+import com.codememory.entity.Weakness;
 import com.codememory.entity.enums.MistakeCategory;
 import com.codememory.entity.enums.SubmissionResult;
 import com.codememory.exception.ResourceNotFoundException;
-import com.codememory.repository.*;
+import com.codememory.repository.MistakeRepository;
+import com.codememory.repository.ProblemRepository;
+import com.codememory.repository.SubmissionRepository;
+import com.codememory.repository.WeaknessRepository;
+import com.codememory.service.MlAnalysisService;
+import com.codememory.service.RecommendationService;
 import com.codememory.service.SubmissionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import com.codememory.dto.ml.MlAnalysisRequest;
-import com.codememory.dto.ml.MlAnalysisResponse;
-import com.codememory.service.MlAnalysisService;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
@@ -29,29 +38,29 @@ public class SubmissionServiceImpl implements SubmissionService {
 
     private final SubmissionRepository submissionRepository;
     private final ProblemRepository problemRepository;
-    private final UserRepository userRepository;
     private final MistakeRepository mistakeRepository;
     private final WeaknessRepository weaknessRepository;
     private final MlAnalysisService mlAnalysisService;
-    private final com.codememory.service.RecommendationService recommendationService;
+    private final RecommendationService recommendationService;
+    private final SecurityUtils securityUtils;
 
     @Override
     @Transactional
     public SubmissionResponse createSubmission(SubmissionRequest request) {
         log.info("Processing submission for problem '{}', result: {}", request.getProblemTitle(), request.getResult());
 
-        // 1. Resolve User (provided or default demo user)
-        User user = resolveUser(request.getUserId());
+        // 1. Resolve Authenticated User directly from SecurityContext
+        User user = securityUtils.getAuthenticatedUser();
 
-        // 2. Resolve Problem (lookup or auto-register)
+        // 2. Resolve Problem (lookup or auto-register in catalog)
         Problem problem = resolveProblem(request);
 
-        // 3. Calculate Attempt Number
+        // 3. Calculate Attempt Number for this specific user
         int attemptNumber = (request.getAttemptNumber() != null && request.getAttemptNumber() > 0)
                 ? request.getAttemptNumber()
                 : (int) submissionRepository.findByUserIdAndProblemIdOrderBySubmittedAtAsc(user.getId(), problem.getId()).size() + 1;
 
-        // 4. Save Submission
+        // 4. Save Submission tied strictly to authenticated user
         Submission submission = Submission.builder()
                 .user(user)
                 .problem(problem)
@@ -83,14 +92,29 @@ public class SubmissionServiceImpl implements SubmissionService {
         Submission submission = submissionRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Submission not found with ID: " + id));
 
+        Long currentUserId = securityUtils.getAuthenticatedUserId();
+        if (!submission.getUser().getId().equals(currentUserId)) {
+            throw new ResourceNotFoundException("Submission not found with ID: " + id);
+        }
+
         Mistake mistake = mistakeRepository.findBySubmissionId(id).stream().findFirst().orElse(null);
         return mapToResponse(submission, mistake);
     }
 
     @Override
     @Transactional(readOnly = true)
+    public List<SubmissionResponse> getSubmissionsForCurrentUser() {
+        return getSubmissionsByUserId(securityUtils.getAuthenticatedUserId());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public List<SubmissionResponse> getSubmissionsByUserId(Long userId) {
-        return submissionRepository.findByUserIdOrderBySubmittedAtDesc(userId)
+        Long currentUserId = securityUtils.getAuthenticatedUserId();
+        // Disallow reading other users' submissions
+        Long targetUserId = (userId != null && userId.equals(currentUserId)) ? userId : currentUserId;
+
+        return submissionRepository.findByUserIdOrderBySubmittedAtDesc(targetUserId)
                 .stream()
                 .map(sub -> {
                     Mistake mistake = mistakeRepository.findBySubmissionId(sub.getId()).stream().findFirst().orElse(null);
@@ -102,32 +126,8 @@ public class SubmissionServiceImpl implements SubmissionService {
     @Override
     @Transactional(readOnly = true)
     public List<SubmissionResponse> getAllSubmissions() {
-        return submissionRepository.findAll()
-                .stream()
-                .map(sub -> {
-                    Mistake mistake = mistakeRepository.findBySubmissionId(sub.getId()).stream().findFirst().orElse(null);
-                    return mapToResponse(sub, mistake);
-                })
-                .toList();
-    }
-
-    private User resolveUser(Long userId) {
-        if (userId != null) {
-            return userRepository.findById(userId)
-                    .orElseGet(this::getOrCreateDefaultUser);
-        }
-        return getOrCreateDefaultUser();
-    }
-
-    private User getOrCreateDefaultUser() {
-        return userRepository.findAll().stream().findFirst().orElseGet(() -> {
-            User demo = User.builder()
-                    .name("Boopana")
-                    .email("boopana@example.com")
-                    .passwordHash("$2a$10$7vN3Vp0lP7kUvT8p7D9Qe.5eL61yZ3xK8aP8tJzV9e1uR4eK0j7fG")
-                    .build();
-            return userRepository.save(demo);
-        });
+        // Enforce user data isolation: return only authenticated user's submissions
+        return getSubmissionsForCurrentUser();
     }
 
     private Problem resolveProblem(SubmissionRequest request) {
@@ -152,7 +152,7 @@ public class SubmissionServiceImpl implements SubmissionService {
             return p;
         }
 
-        // Create new problem
+        // Create new problem in shared catalog
         List<String> topics = (request.getTopics() != null) ? new ArrayList<>(request.getTopics()) : new ArrayList<>();
         Problem newProblem = Problem.builder()
                 .leetcodeId(request.getLeetcodeId())
@@ -167,6 +167,7 @@ public class SubmissionServiceImpl implements SubmissionService {
 
     private Mistake recordMistakeAndTrackWeakness(Submission submission, Problem problem, String userExplanation) {
         MlAnalysisRequest mlRequest = MlAnalysisRequest.builder()
+                .userId(String.valueOf(submission.getUser().getId()))
                 .problemTitle(problem.getTitle())
                 .topic(problem.getTopics())
                 .difficulty(problem.getDifficulty())
@@ -199,7 +200,7 @@ public class SubmissionServiceImpl implements SubmissionService {
 
         Mistake savedMistake = mistakeRepository.save(mistake);
 
-        // Update Longitudinal Weakness Model
+        // Update Longitudinal Weakness Model for this user
         updateWeaknessProfile(submission.getUser(), problem, category);
 
         return savedMistake;
@@ -236,7 +237,7 @@ public class SubmissionServiceImpl implements SubmissionService {
             savedWeakness = weaknessRepository.save(newWeakness);
         }
 
-        // Trigger adaptive targeted recommendation generation if recurring (frequency >= 2)
+        // Trigger targeted recommendation generation if recurring (frequency >= 2)
         if (savedWeakness.getFrequency() >= 2) {
             recommendationService.generateRecommendationsForWeakness(savedWeakness);
         }

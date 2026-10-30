@@ -1,11 +1,11 @@
 package com.codememory.service.impl;
 
+import com.codememory.config.SecurityUtils;
 import com.codememory.dto.WeaknessResponse;
 import com.codememory.entity.Mistake;
 import com.codememory.entity.Weakness;
 import com.codememory.exception.ResourceNotFoundException;
 import com.codememory.repository.MistakeRepository;
-import com.codememory.repository.SubmissionRepository;
 import com.codememory.repository.WeaknessRepository;
 import com.codememory.service.WeaknessService;
 import lombok.RequiredArgsConstructor;
@@ -15,36 +15,29 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 
 @Service
+@RequiredArgsConstructor
 public class WeaknessServiceImpl implements WeaknessService {
 
     private final WeaknessRepository weaknessRepository;
     private final MistakeRepository mistakeRepository;
-    private final SubmissionRepository submissionRepository;
-    private final com.codememory.repository.UserRepository userRepository;
+    private final SecurityUtils securityUtils;
 
-    public WeaknessServiceImpl(
-            WeaknessRepository weaknessRepository,
-            MistakeRepository mistakeRepository,
-            SubmissionRepository submissionRepository,
-            com.codememory.repository.UserRepository userRepository) {
-        this.weaknessRepository = weaknessRepository;
-        this.mistakeRepository = mistakeRepository;
-        this.submissionRepository = submissionRepository;
-        this.userRepository = userRepository;
+    @Override
+    @Transactional(readOnly = true)
+    public List<WeaknessResponse> getWeaknessesForCurrentUser() {
+        return getWeaknessesForUser(securityUtils.getAuthenticatedUserId());
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<WeaknessResponse> getWeaknessesForUser(Long userId) {
-        Long targetUserId = (userId != null) ? userId : resolveDefaultUserId();
+        Long currentUserId = securityUtils.getAuthenticatedUserId();
+        Long targetUserId = (userId != null && userId.equals(currentUserId)) ? userId : currentUserId;
+
         return weaknessRepository.findByUserIdOrderByFrequencyDesc(targetUserId)
                 .stream()
                 .map(this::mapToResponse)
                 .toList();
-    }
-
-    private Long resolveDefaultUserId() {
-        return userRepository.findAll().stream().findFirst().map(u -> u.getId()).orElse(1L);
     }
 
     @Override
@@ -52,11 +45,16 @@ public class WeaknessServiceImpl implements WeaknessService {
     public WeaknessResponse getWeaknessById(Long id) {
         Weakness weakness = weaknessRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Weakness not found with ID: " + id));
+
+        Long currentUserId = securityUtils.getAuthenticatedUserId();
+        if (!weakness.getUser().getId().equals(currentUserId)) {
+            throw new ResourceNotFoundException("Weakness not found with ID: " + id);
+        }
+
         return mapToResponse(weakness);
     }
 
     private WeaknessResponse mapToResponse(Weakness w) {
-        // Derive severity
         String severity = "MEDIUM";
         double score = w.getMasteryScore() != null ? w.getMasteryScore() : 70.0;
         if (score >= 80.0) {
@@ -65,10 +63,9 @@ public class WeaknessServiceImpl implements WeaknessService {
             severity = "HIGH";
         }
 
-        // Find affected problem titles
-        List<String> affectedProblems = mistakeRepository.findAll().stream()
-                .filter(m -> m.getCategory() == w.getMistakeCategory() &&
-                        m.getSubmission().getUser().getId().equals(w.getUser().getId()))
+        // Find affected problem titles strictly for this user and category
+        List<String> affectedProblems = mistakeRepository.findByUserIdAndCategory(w.getUser().getId(), w.getMistakeCategory())
+                .stream()
                 .map(m -> m.getSubmission().getProblem().getTitle())
                 .distinct()
                 .limit(4)

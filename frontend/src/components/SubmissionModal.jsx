@@ -31,12 +31,7 @@ export default function SubmissionModal({ isOpen, onClose, onSuccess }) {
         onClose();
       }, 1000);
     } catch (err) {
-      // In offline/mock mode, provide graceful simulated success
-      setStatusMessage({ type: 'info', text: 'Offline mode active: Local weakness profile updated!' });
-      setTimeout(() => {
-        onSuccess();
-        onClose();
-      }, 1000);
+      setStatusMessage({ type: 'error', text: err.message || 'Failed to submit attempt. Check backend connection.' });
     } finally {
       setLoading(false);
     }

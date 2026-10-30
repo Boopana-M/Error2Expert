@@ -16,13 +16,15 @@ class PatternDetector:
         new_mistake_text: str,
         category: MistakeCategory,
         problem_title: str,
-        topics: Optional[List[str]] = None
+        topics: Optional[List[str]] = None,
+        user_id: Optional[str] = None
     ) -> PatternDetectionResponse:
         # Calibrated threshold (0.52) to capture nuanced explanations and paraphrasing
         matches = self.memory.search_similar(
             query_text=new_mistake_text,
             top_k=8,
-            threshold=0.52
+            threshold=0.52,
+            user_id=user_id
         )
 
         # Relevant matches: same mistake category with meaningful semantic alignment or high similarity

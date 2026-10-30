@@ -7,9 +7,9 @@ export default function OverviewCards({ summary }) {
     problemsAccepted = 0,
     totalMistakes = 0,
     recurringMistakes = 0,
-    strongestConcept = "N/A",
-    weakestConcept = "N/A",
-    currentMastery = 70
+    strongestConcept = "—",
+    weakestConcept = "—",
+    currentMastery = 0
   } = summary || {};
 
   const acceptanceRate = problemsAttempted > 0 
@@ -37,7 +37,11 @@ export default function OverviewCards({ summary }) {
           </div>
         </div>
         <p className="stat-subtext">
-          Targeted practice bonus applied. <strong>+{currentMastery > 70 ? '8' : '3'} pts</strong> this month.
+          {problemsAttempted > 0 ? (
+            <>Targeted practice calibrated. <strong>+{currentMastery > 70 ? '8' : '3'} pts</strong> longitudinal retention.</>
+          ) : (
+            <span>Solve and log attempts to track longitudinal mastery.</span>
+          )}
         </p>
       </div>
 
@@ -76,10 +80,10 @@ export default function OverviewCards({ summary }) {
           <TrendingDown size={18} className="stat-icon-rose" />
         </div>
         <div className="concept-pill text-rose">
-          {weakestConcept}
+          {weakestConcept || "—"}
         </div>
         <div className="stat-sub-row">
-          <span className="text-muted">Strongest: <strong className="text-emerald">{strongestConcept}</strong></span>
+          <span className="text-muted">Strongest: <strong className="text-emerald">{strongestConcept || "—"}</strong></span>
         </div>
       </div>
     </div>

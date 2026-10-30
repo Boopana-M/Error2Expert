@@ -21,6 +21,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const settingsPanel = document.getElementById('settings-panel');
   const inputBackendUrl = document.getElementById('input-backend-url');
   const inputDashboardUrl = document.getElementById('input-dashboard-url');
+  const inputAuthToken = document.getElementById('input-auth-token');
   const btnSaveSettings = document.getElementById('btn-save-settings');
   const settingsStatusMsg = document.getElementById('settings-status-msg');
 
@@ -40,6 +41,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   const currentDashboardUrl = await getDashboardUrl();
   if (inputBackendUrl) inputBackendUrl.value = currentBackendUrl;
   if (inputDashboardUrl) inputDashboardUrl.value = currentDashboardUrl;
+  chrome.storage?.local?.get(['settings'], (res) => {
+    if (res.settings && res.settings.authToken && inputAuthToken) {
+      inputAuthToken.value = res.settings.authToken;
+    }
+  });
 
   const updateHealthIndicator = async (url) => {
     const isOnline = await ExtensionApi.checkHealth(url);
@@ -64,6 +70,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   btnSaveSettings?.addEventListener('click', async () => {
     const newBackend = (inputBackendUrl.value || 'http://localhost:8080/api').trim().replace(/\/+$/, '');
     const newDashboard = (inputDashboardUrl.value || 'http://localhost:5173').trim().replace(/\/+$/, '');
+    const newAuthToken = (inputAuthToken?.value || '').trim();
 
     btnSaveSettings.disabled = true;
     btnSaveSettings.textContent = 'Testing...';
@@ -72,7 +79,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     await chrome.storage?.local?.set({
       settings: {
         backendUrl: newBackend,
-        dashboardUrl: newDashboard
+        dashboardUrl: newDashboard,
+        authToken: newAuthToken
       }
     });
 

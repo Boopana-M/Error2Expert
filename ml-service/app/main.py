@@ -54,19 +54,8 @@ pattern_detector = PatternDetector(vector_memory)
 code_diff_analyzer = CodeDiffAnalyzer()
 ast_analyzer = AstAnalyzer()
 
-# Seed vector memory with initial realistic historical patterns from Section 9 & 10
-def _seed_initial_memory():
-    initial_mistakes = [
-        ("seed-1", "I updated high = mid instead of high = mid - 1", MistakeCategory.BOUNDARY_ERROR, "Binary Search", ["Binary Search", "Array"]),
-        ("seed-2", "Low pointer was updated to mid instead of mid + 1 resulting in infinite loop", MistakeCategory.BOUNDARY_ERROR, "Search in Rotated Sorted Array", ["Binary Search", "Array"]),
-        ("seed-3", "Left and right boundaries were not adjusted with offset +/- 1", MistakeCategory.BOUNDARY_ERROR, "Find Minimum in Rotated Sorted Array", ["Binary Search", "Array"]),
-        ("seed-4", "Forgot to mark cell visited in DFS causing infinite recursion stack overflow", MistakeCategory.GRAPH_VISITED_ERROR, "Number of Islands", ["Graph", "Depth-First Search"]),
-        ("seed-5", "Did not maintain visited cycle state in directed graph traversal", MistakeCategory.GRAPH_VISITED_ERROR, "Course Schedule", ["Graph", "Topological Sort"]),
-    ]
-    for mid, text, cat, title, topics in initial_mistakes:
-        vector_memory.add_mistake(mid, text, cat, title, topics)
-
-_seed_initial_memory()
+# Vector memory starts empty; real user attempts are indexed per-user dynamically
+# without polluting newly registered accounts with demo history
 
 @app.get("/")
 def root():
@@ -129,19 +118,21 @@ def analyze_attempt(request: AttemptAnalysisRequest):
             new_mistake_text=request.userExplanation,
             category=category,
             problem_title=request.problemTitle,
-            topics=request.topic
+            topics=request.topic,
+            user_id=request.userId
         )
         similar_count = len(pattern_res.matches)
         is_recurring = pattern_res.recurring
         evidence.append(pattern_res.patternSummary)
 
-        # Index into longitudinal memory
+        # Index into longitudinal memory tied to user
         vector_memory.add_mistake(
             mistake_id=f"attempt-{vector_memory.count() + 1}",
             text=request.userExplanation,
             category=category,
             problem_title=request.problemTitle,
-            topics=request.topic
+            topics=request.topic,
+            user_id=request.userId
         )
 
     return AttemptAnalysisResponse(
@@ -188,7 +179,8 @@ def index_mistake(request: IndexMistakeRequest):
         text=request.text,
         category=request.category,
         problem_title=request.problemTitle,
-        topics=request.topics
+        topics=request.topics,
+        user_id=request.userId
     )
     return {
         "success": True,
@@ -201,7 +193,8 @@ def find_similar_mistakes(request: FindSimilarMistakesRequest):
     matches = vector_memory.search_similar(
         query_text=request.text,
         top_k=request.topK or 5,
-        threshold=request.threshold or 0.52
+        threshold=request.threshold or 0.52,
+        user_id=request.userId
     )
     return FindSimilarMistakesResponse(
         matches=matches,
@@ -214,7 +207,8 @@ def detect_pattern(request: PatternDetectionRequest):
         new_mistake_text=request.newMistake,
         category=request.category,
         problem_title=request.problemTitle,
-        topics=request.topics
+        topics=request.topics,
+        user_id=request.userId
     )
 
 @app.post("/generate-recommendation", response_model=RecommendationResponse)
