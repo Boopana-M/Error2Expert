@@ -41,18 +41,27 @@ public class DataInitializer implements CommandLineRunner {
             seedProblems();
         }
 
-        // 2. Safe cleanup of legacy demo records if present
-        userRepository.findByEmail("boopana@example.com").ifPresent(demoUser -> {
-            log.info("Cleaning up legacy demo account 'boopana@example.com' to guarantee multi-user isolation...");
-            recommendationRepository.deleteAll(recommendationRepository.findByUserIdOrderByCreatedAtDesc(demoUser.getId()));
-            weaknessRepository.deleteAll(weaknessRepository.findByUserIdOrderByFrequencyDesc(demoUser.getId()));
-            List<Submission> demoSubs = submissionRepository.findByUserIdOrderBySubmittedAtDesc(demoUser.getId());
-            for (Submission sub : demoSubs) {
-                mistakeRepository.deleteAll(mistakeRepository.findBySubmissionId(sub.getId()));
+        // 2. Comprehensive cleanup: Purge all legacy seed records across the database
+        userRepository.findByEmail("boopana@example.com").ifPresent(userRepository::delete);
+
+        // Reset any existing accounts that carry legacy seed data
+        userRepository.findAll().forEach(user -> {
+            List<Weakness> userWeaknesses = weaknessRepository.findByUserIdOrderByFrequencyDesc(user.getId());
+            boolean isLegacySeeded = userWeaknesses.stream()
+                    .anyMatch(w -> ("Binary Search".equals(w.getConcept()) && Double.valueOf(72.0).equals(w.getMasteryScore()))
+                                || ("Graph Traversal".equals(w.getConcept()) && Double.valueOf(78.5).equals(w.getMasteryScore())));
+
+            if (isLegacySeeded || "boopana608@gmail.com".equalsIgnoreCase(user.getEmail())) {
+                log.info("Resetting legacy seeded history for user '{}' (ID: {})...", user.getEmail(), user.getId());
+                recommendationRepository.deleteAll(recommendationRepository.findByUserIdOrderByCreatedAtDesc(user.getId()));
+                weaknessRepository.deleteAll(userWeaknesses);
+                List<Submission> subs = submissionRepository.findByUserIdOrderBySubmittedAtDesc(user.getId());
+                for (Submission sub : subs) {
+                    mistakeRepository.deleteAll(mistakeRepository.findBySubmissionId(sub.getId()));
+                }
+                submissionRepository.deleteAll(subs);
+                log.info("User '{}' dashboard reset to completely empty.", user.getEmail());
             }
-            submissionRepository.deleteAll(demoSubs);
-            userRepository.delete(demoUser);
-            log.info("Legacy demo account and mock activity successfully purged.");
         });
 
         log.info("DataInitializer completed. Canonical problem catalog contains {} problems.", problemRepository.count());

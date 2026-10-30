@@ -5,4 +5,5 @@ import com.codememory.dto.auth.UserResponse;
 public interface UserService {
     UserResponse getCurrentUser(String email);
     UserResponse getUserById(Long id);
+    void resetUserData(Long userId);
 }

@@ -86,11 +86,23 @@ export default function App() {
     setIsAuthOpen(true);
   };
 
+  const handleResetDashboard = async () => {
+    if (window.confirm("Are you sure you want to reset your dashboard to a completely fresh, empty state?")) {
+      try {
+        await api.resetMyDashboard();
+        await loadDashboardData();
+      } catch (err) {
+        alert("Failed to reset dashboard: " + err.message);
+      }
+    }
+  };
+
   return (
     <div className="app-wrapper">
       <Navbar
         user={currentUser}
         onLogout={handleLogout}
+        onResetDashboard={handleResetDashboard}
         onOpenAuthModal={() => setIsAuthOpen(true)}
         onOpenSubmissionModal={() => {
           if (!api.isAuthenticated()) {

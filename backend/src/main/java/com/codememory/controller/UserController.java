@@ -35,4 +35,11 @@ public class UserController {
         UserResponse response = userService.getUserById(id);
         return ResponseEntity.ok(ApiResponse.success("User profile retrieved", response));
     }
+
+    @PostMapping("/reset")
+    public ResponseEntity<ApiResponse<String>> resetMyDashboard() {
+        User user = securityUtils.getAuthenticatedUser();
+        userService.resetUserData(user.getId());
+        return ResponseEntity.ok(ApiResponse.success("Dashboard successfully reset to completely empty state.", "RESET_SUCCESS"));
+    }
 }

@@ -1,7 +1,7 @@
 import React from 'react';
-import { Brain, Cpu, Database, PlusCircle, LogOut, LogIn, User } from 'lucide-react';
+import { Brain, Cpu, Database, PlusCircle, LogOut, LogIn, User, RotateCcw } from 'lucide-react';
 
-export default function Navbar({ user, onLogout, onOpenAuthModal, onOpenSubmissionModal }) {
+export default function Navbar({ user, onLogout, onResetDashboard, onOpenAuthModal, onOpenSubmissionModal }) {
   const initial = user?.name ? user.name.charAt(0).toUpperCase() : '?';
 
   return (
@@ -42,6 +42,19 @@ export default function Navbar({ user, onLogout, onOpenAuthModal, onOpenSubmissi
               <PlusCircle size={16} />
               <span>Log Attempt</span>
             </button>
+
+            {onResetDashboard && (
+              <button
+                id="btn-reset-dashboard"
+                onClick={onResetDashboard}
+                className="btn-secondary btn-sm"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#94a3b8' }}
+                title="Wipe mock/demo data and reset dashboard to completely empty"
+              >
+                <RotateCcw size={14} />
+                <span>Reset to Empty</span>
+              </button>
+            )}
 
             <button
               id="btn-logout"

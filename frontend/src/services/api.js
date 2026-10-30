@@ -208,5 +208,17 @@ export const api = {
       body: JSON.stringify({ code, language, problemTitle }),
     });
     return await res.json();
+  },
+
+  async resetMyDashboard() {
+    const res = await fetch(`${API_BASE_URL}/users/reset`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+    });
+    const json = await res.json();
+    if (!res.ok || !json.success) {
+      throw new Error(json.message || 'Failed to reset dashboard');
+    }
+    return json;
   }
 };
