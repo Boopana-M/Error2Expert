@@ -47,6 +47,32 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
+  // Auto-sync login token from open dashboard tab if present
+  try {
+    const dashTabs = await chrome.tabs?.query?.({ url: ['*://error2expert-frontend.onrender.com/*', 'http://localhost:5173/*', 'http://localhost:3000/*'] });
+    if (dashTabs && dashTabs.length > 0 && dashTabs[0].id) {
+      chrome.scripting?.executeScript?.({
+        target: { tabId: dashTabs[0].id },
+        func: () => localStorage.getItem('codememory_token')
+      }, (results) => {
+        if (results && results[0] && results[0].result) {
+          const autoToken = results[0].result;
+          chrome.storage?.local?.get(['settings'], (res) => {
+            const current = res.settings || {};
+            if (!current.authToken || current.authToken !== autoToken) {
+              chrome.storage?.local?.set({
+                settings: { ...current, authToken: autoToken }
+              });
+              if (inputAuthToken) inputAuthToken.value = autoToken;
+            }
+          });
+        }
+      });
+    }
+  } catch (e) {
+    console.debug('Dashboard token auto-sync skipped:', e);
+  }
+
   const updateHealthIndicator = async (url) => {
     const isOnline = await ExtensionApi.checkHealth(url);
     if (isOnline) {
