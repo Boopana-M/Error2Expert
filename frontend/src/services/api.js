@@ -6,11 +6,16 @@
  */
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 
-  (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1'
-    ? `${window.location.origin}/api`
-    : 'http://localhost:8080/api');
+  (typeof window !== 'undefined' && window.location.hostname.includes('onrender.com')
+    ? 'https://error2expert-backend.onrender.com/api'
+    : (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1'
+      ? `${window.location.origin}/api`
+      : 'http://localhost:8080/api'));
 
-const ML_API_BASE_URL = import.meta.env.VITE_ML_API_URL || 'http://localhost:8000';
+const ML_API_BASE_URL = import.meta.env.VITE_ML_API_URL || 
+  (typeof window !== 'undefined' && window.location.hostname.includes('onrender.com')
+    ? 'https://error2expert-ml-service.onrender.com'
+    : 'http://localhost:8000');
 
 function getAuthHeaders() {
   const token = localStorage.getItem('codememory_token');
@@ -27,37 +32,61 @@ function getAuthHeaders() {
 export const api = {
   // --- Auth APIs ---
   async login(email, password) {
-    const res = await fetch(`${API_BASE_URL}/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: email.trim(), password }),
-    });
-    const json = await res.json();
-    if (!res.ok || !json.success) {
-      throw new Error(json.message || 'Login failed. Please check your credentials.');
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 65000);
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim(), password }),
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || 'Login failed. Please check your credentials.');
+      }
+      if (json.data?.token) {
+        localStorage.setItem('codememory_token', json.data.token);
+        localStorage.setItem('codememory_user', JSON.stringify(json.data));
+      }
+      return json.data;
+    } catch (err) {
+      clearTimeout(timeoutId);
+      if (err.name === 'AbortError') {
+        throw new Error('Connection timed out. The backend container is starting up from sleep. Please click submit again.');
+      }
+      throw err;
     }
-    if (json.data?.token) {
-      localStorage.setItem('codememory_token', json.data.token);
-      localStorage.setItem('codememory_user', JSON.stringify(json.data));
-    }
-    return json.data;
   },
 
   async register(name, email, password) {
-    const res = await fetch(`${API_BASE_URL}/auth/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: name.trim(), email: email.trim(), password }),
-    });
-    const json = await res.json();
-    if (!res.ok || !json.success) {
-      throw new Error(json.message || 'Registration failed. Email may already be in use.');
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 65000);
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name.trim(), email: email.trim(), password }),
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || 'Registration failed. Email may already be in use.');
+      }
+      if (json.data?.token) {
+        localStorage.setItem('codememory_token', json.data.token);
+        localStorage.setItem('codememory_user', JSON.stringify(json.data));
+      }
+      return json.data;
+    } catch (err) {
+      clearTimeout(timeoutId);
+      if (err.name === 'AbortError') {
+        throw new Error('Connection timed out. The backend container is starting up from sleep. Please click submit again.');
+      }
+      throw err;
     }
-    if (json.data?.token) {
-      localStorage.setItem('codememory_token', json.data.token);
-      localStorage.setItem('codememory_user', JSON.stringify(json.data));
-    }
-    return json.data;
   },
 
   logout() {

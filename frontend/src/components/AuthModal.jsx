@@ -9,6 +9,19 @@ export default function AuthModal({ isOpen, onClose, onSuccess }) {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [coldStartNotice, setColdStartNotice] = useState(false);
+
+  React.useEffect(() => {
+    let timer;
+    if (loading) {
+      timer = setTimeout(() => {
+        setColdStartNotice(true);
+      }, 3000);
+    } else {
+      setColdStartNotice(false);
+    }
+    return () => clearTimeout(timer);
+  }, [loading]);
 
   if (!isOpen) return null;
 
@@ -16,6 +29,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }) {
     e.preventDefault();
     setError(null);
     setLoading(true);
+    setColdStartNotice(false);
 
     try {
       let userData;
@@ -95,6 +109,16 @@ export default function AuthModal({ isOpen, onClose, onSuccess }) {
           <div className="status-banner error" style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <AlertCircle size={16} />
             <span style={{ fontSize: '0.85rem' }}>{error}</span>
+          </div>
+        )}
+
+        {coldStartNotice && (
+          <div className="status-banner" style={{ marginBottom: '16px', background: 'rgba(56, 189, 248, 0.12)', border: '1px solid rgba(56, 189, 248, 0.3)', color: '#38bdf8', padding: '10px 12px', borderRadius: '8px', fontSize: '0.8rem', display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+            <span style={{ fontSize: '1rem', lineHeight: 1 }}>⏳</span>
+            <div>
+              <strong style={{ display: 'block', color: '#7dd3fc', marginBottom: '2px' }}>Waking backend from sleep...</strong>
+              Render free-tier service is booting up. Initial cold-start takes ~30–45s, then all requests are instant.
+            </div>
           </div>
         )}
 

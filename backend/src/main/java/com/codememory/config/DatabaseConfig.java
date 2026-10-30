@@ -60,6 +60,7 @@ public class DatabaseConfig {
 
         // Automatically convert cloud URI format (postgres://user:pass@host:port/dbname)
         if (rawUrl.startsWith("postgres://") || rawUrl.startsWith("postgresql://")) {
+            boolean parsed = false;
             try {
                 String uriStr = rawUrl.replace("postgres://", "http://").replace("postgresql://", "http://");
                 URI uri = new URI(uriStr);
@@ -70,10 +71,10 @@ public class DatabaseConfig {
                 String query = uri.getQuery();
 
                 if (uri.getUserInfo() != null) {
-                    String[] userInfo = uri.getUserInfo().split(":");
-                    username = userInfo[0];
+                    String[] userInfo = uri.getUserInfo().split(":", 2);
+                    username = java.net.URLDecoder.decode(userInfo[0], java.nio.charset.StandardCharsets.UTF_8);
                     if (userInfo.length > 1) {
-                        password = userInfo[1];
+                        password = java.net.URLDecoder.decode(userInfo[1], java.nio.charset.StandardCharsets.UTF_8);
                     }
                 }
 
@@ -83,9 +84,21 @@ public class DatabaseConfig {
                 } else if (!jdbcUrl.contains("sslmode")) {
                     jdbcUrl += "?sslmode=prefer";
                 }
+                parsed = true;
                 log.info("Successfully converted cloud DATABASE_URL to JDBC: jdbc:postgresql://{}:{}{}", host, port, path);
             } catch (Exception e) {
-                log.warn("Failed to parse DATABASE_URL as URI, using fallback: {}", e.getMessage());
+                log.warn("Standard URI parse failed for DATABASE_URL: {}. Attempting direct JDBC formatting.", e.getMessage());
+            }
+
+            if (!parsed) {
+                String clean = rawUrl.startsWith("postgres://")
+                        ? rawUrl.replaceFirst("^postgres://", "jdbc:postgresql://")
+                        : rawUrl.replaceFirst("^postgresql://", "jdbc:postgresql://");
+                jdbcUrl = clean;
+                if (!jdbcUrl.contains("sslmode")) {
+                    jdbcUrl += (jdbcUrl.contains("?") ? "&" : "?") + "sslmode=prefer";
+                }
+                log.info("Applied direct JDBC format for cloud database URL.");
             }
         }
 

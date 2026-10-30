@@ -41,7 +41,7 @@ services:
     region: oregon
     rootDir: backend
     dockerfilePath: Dockerfile
-    healthCheckPath: /api/dashboard/summary
+    healthCheckPath: /api/health
     envVars:
       - key: DATABASE_URL
         fromDatabase:
@@ -74,3 +74,5 @@ services:
     envVars:
       - key: VITE_API_URL
         value: https://error2expert-backend.onrender.com/api
+      - key: VITE_ML_API_URL
+        value: https://error2expert-ml-service.onrender.com
