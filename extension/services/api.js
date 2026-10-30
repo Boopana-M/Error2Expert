@@ -4,8 +4,8 @@
  * Dynamically resolves target backend URL from Chrome local storage.
  */
 
-const DEFAULT_BACKEND_URL = 'http://localhost:8080/api';
-const DEFAULT_DASHBOARD_URL = 'http://localhost:5173';
+const DEFAULT_BACKEND_URL = 'https://error2expert-backend.onrender.com/api';
+const DEFAULT_DASHBOARD_URL = 'https://error2expert-frontend.onrender.com';
 
 export async function getBackendUrl() {
   try {
@@ -104,7 +104,7 @@ export const ExtensionApi = {
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 4000);
-      const res = await fetch(`${baseUrl}/submissions?limit=1`, { 
+      const res = await fetch(`${baseUrl}/health`, { 
         method: 'GET',
         signal: controller.signal
       });

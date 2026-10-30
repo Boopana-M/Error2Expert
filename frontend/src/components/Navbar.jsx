@@ -1,5 +1,5 @@
 import React from 'react';
-import { Brain, Cpu, Database, PlusCircle, LogOut, LogIn, User, RotateCcw } from 'lucide-react';
+import { Brain, Cpu, Database, PlusCircle, LogOut, LogIn, User, RotateCcw, Download } from 'lucide-react';
 
 export default function Navbar({ user, onLogout, onResetDashboard, onOpenAuthModal, onOpenSubmissionModal }) {
   const initial = user?.name ? user.name.charAt(0).toUpperCase() : '?';
@@ -17,6 +17,17 @@ export default function Navbar({ user, onLogout, onResetDashboard, onOpenAuthMod
       </div>
 
       <div className="navbar-right">
+        <a
+          href="/error2expert-extension.zip"
+          download="error2expert-extension.zip"
+          className="btn-secondary btn-sm"
+          style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#38bdf8', borderColor: 'rgba(56, 189, 248, 0.3)' }}
+          title="Download Chrome Extension (ZIP) for LeetCode"
+        >
+          <Download size={14} />
+          <span>Get Extension</span>
+        </a>
+
         <div className="engine-status" title="FAISS FlatIP L2 Unit-Vector Memory">
           <Database size={15} className="status-icon-purple" />
           <span>Vector Memory: <strong className="text-purple">User-Isolated</strong></span>
