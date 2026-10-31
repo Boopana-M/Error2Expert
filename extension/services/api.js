@@ -11,8 +11,9 @@ export async function getBackendUrl() {
   try {
     if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
       const res = await chrome.storage.local.get(['settings']);
-      if (res.settings && res.settings.backendUrl && res.settings.backendUrl.trim()) {
-        return res.settings.backendUrl.trim().replace(/\/+$/, '');
+      const url = res.settings?.backendUrl?.trim();
+      if (url && !url.includes('localhost') && !url.includes('127.0.0.1')) {
+        return url.replace(/\/+$/, '');
       }
     }
   } catch (e) {
@@ -25,8 +26,9 @@ export async function getDashboardUrl() {
   try {
     if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
       const res = await chrome.storage.local.get(['settings']);
-      if (res.settings && res.settings.dashboardUrl && res.settings.dashboardUrl.trim()) {
-        return res.settings.dashboardUrl.trim().replace(/\/+$/, '');
+      const url = res.settings?.dashboardUrl?.trim();
+      if (url && !url.includes('localhost') && !url.includes('127.0.0.1')) {
+        return url.replace(/\/+$/, '');
       }
     }
   } catch (e) {
