@@ -87,42 +87,81 @@ window.CodeMemoryParser = {
    * Returns normalized enum ('ACCEPTED', 'WRONG_ANSWER', etc.) or null if no active submission verdict is visible.
    */
   detectLiveVerdict() {
-    // 1. Primary LeetCode data-e2e locator
+    // Helper to check if an element belongs to the sample testcase runner rather than the authentic submission
+    const isInsideTestcaseConsole = (el) => {
+      if (!el) return false;
+      const testcaseParent = el.closest('[data-layout-path*="testcase"]') ||
+                             el.closest('[data-e2e-locator="console-result"]') ||
+                             el.closest('.testcase-container') ||
+                             el.closest('#test-result');
+      if (testcaseParent) return true;
+
+      // Check if neighboring text contains testcase indicators (e.g. "Case 1", "Case 2", "Testcase")
+      const parent = el.parentElement;
+      if (parent) {
+        const pText = (parent.textContent || '');
+        if (pText.includes('Case 1') || pText.includes('Testcase') || pText.includes('Runtime:')) {
+          return true;
+        }
+      }
+      return false;
+    };
+
+    // 1. Check for authentic submission result container first
     const e2eEl = document.querySelector('[data-e2e-locator="submission-result"]');
-    if (e2eEl && e2eEl.textContent.trim()) {
+    if (e2eEl && !isInsideTestcaseConsole(e2eEl)) {
       const normalized = this.normalizeResult(e2eEl.textContent.trim());
       if (normalized) return normalized;
     }
 
-    // 2. Targeted search inside verdict headers and tab labels
-    const candidateSelectors = [
-      'div[data-e2e-locator="submission-result"]',
-      'span[data-e2e-locator="submission-result"]',
-      '[class*="result-status"]',
-      '[class*="status-column"]',
+    // 2. Scan for FAILURE verdicts FIRST across the whole page (failure always supersedes sample testcase passes)
+    const failureSelectors = [
       'div[class*="text-red-"]',
-      'div[class*="text-green-"]',
-      'div[class*="text-yellow-"]',
       'span[class*="text-red-"]',
-      'span[class*="text-green-"]',
-      'span[class*="text-yellow-"]',
-      'div[class*="text-sd-"]',
-      'span[class*="text-sd-"]'
+      '[class*="result-status"]',
+      '[class*="status-column"]'
     ];
 
-    for (const sel of candidateSelectors) {
+    for (const sel of failureSelectors) {
       const elements = document.querySelectorAll(sel);
       for (const el of elements) {
-        const txt = (el.textContent || '').trim();
-        const upper = txt.toUpperCase();
+        if (isInsideTestcaseConsole(el)) continue;
+        const txt = (el.textContent || '').trim().toUpperCase();
+        if (txt === 'WRONG ANSWER' || txt.startsWith('WRONG ANSWER')) return 'WRONG_ANSWER';
+        if (txt.includes('TIME LIMIT') || txt.startsWith('TLE')) return 'TIME_LIMIT_EXCEEDED';
+        if (txt.includes('RUNTIME ERROR')) return 'RUNTIME_ERROR';
+        if (txt.includes('COMPILE ERROR')) return 'COMPILE_ERROR';
+        if (txt.includes('MEMORY LIMIT')) return 'MEMORY_LIMIT_EXCEEDED';
+      }
+    }
 
-        // Must strictly match verdict text, NOT testcase counts or tab titles
-        if (upper === 'ACCEPTED' || upper.startsWith('ACCEPTED ')) return 'ACCEPTED';
-        if (upper === 'WRONG ANSWER' || upper.startsWith('WRONG ANSWER ')) return 'WRONG_ANSWER';
-        if (upper === 'TIME LIMIT EXCEEDED' || upper.startsWith('TIME LIMIT EXCEEDED ') || upper.startsWith('TLE')) return 'TIME_LIMIT_EXCEEDED';
-        if (upper === 'RUNTIME ERROR' || upper.startsWith('RUNTIME ERROR ')) return 'RUNTIME_ERROR';
-        if (upper === 'COMPILE ERROR' || upper.startsWith('COMPILE ERROR ')) return 'COMPILE_ERROR';
-        if (upper === 'MEMORY LIMIT EXCEEDED' || upper.startsWith('MEMORY LIMIT EXCEEDED ')) return 'MEMORY_LIMIT_EXCEEDED';
+    // 3. Check for submission tabs / header text explicitly
+    const tabElements = document.querySelectorAll('div, span, button, a');
+    for (const el of tabElements) {
+      if (isInsideTestcaseConsole(el)) continue;
+      const txt = (el.textContent || '').trim().toUpperCase();
+      if (txt === 'WRONG ANSWER') return 'WRONG_ANSWER';
+    }
+
+    // 4. Finally check for genuine ACCEPTED submission (ignoring testcase console)
+    const acceptedSelectors = [
+      'div[data-e2e-locator="submission-result"]',
+      'span[data-e2e-locator="submission-result"]',
+      'div[class*="text-green-"]',
+      'span[class*="text-green-"]'
+    ];
+
+    for (const sel of acceptedSelectors) {
+      const elements = document.querySelectorAll(sel);
+      for (const el of elements) {
+        if (isInsideTestcaseConsole(el)) continue;
+        const txt = (el.textContent || '').trim().toUpperCase();
+        if (txt === 'ACCEPTED' || txt.startsWith('ACCEPTED ') || txt.includes('ACCEPTED (')) {
+          // Double check it's not a tab label like "Accepted Solutions"
+          if (!txt.includes('SOLUTION') && !txt.includes('EDITORIAL')) {
+            return 'ACCEPTED';
+          }
+        }
       }
     }
 

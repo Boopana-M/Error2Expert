@@ -5,36 +5,29 @@
 
 import { ExtensionApi, DEFAULT_BACKEND_URL, DEFAULT_DASHBOARD_URL } from './services/api.js';
 
-function enforceCloudSettings() {
+function enforceLocalSettings() {
   chrome.storage.local.get(['settings'], (res) => {
     const existing = res.settings || {};
-    const backend = (!existing.backendUrl || existing.backendUrl.includes('localhost') || existing.backendUrl.includes('127.0.0.1'))
-      ? DEFAULT_BACKEND_URL
-      : existing.backendUrl;
-    const dashboard = (!existing.dashboardUrl || existing.dashboardUrl.includes('localhost') || existing.dashboardUrl.includes('127.0.0.1'))
-      ? DEFAULT_DASHBOARD_URL
-      : existing.dashboardUrl;
-
     chrome.storage.local.set({
       settings: {
         ...existing,
-        backendUrl: backend,
-        dashboardUrl: dashboard
+        backendUrl: DEFAULT_BACKEND_URL,
+        dashboardUrl: DEFAULT_DASHBOARD_URL
       }
     }, () => {
-      console.log('[Error2Expert Background] Endpoints configured:', backend, dashboard);
+      console.log('[Error2Expert Background] Endpoints configured for localhost:', DEFAULT_BACKEND_URL, DEFAULT_DASHBOARD_URL);
     });
   });
 }
 
 chrome.runtime.onInstalled.addListener(() => {
   console.log('[Error2Expert] Extension installed / updated.');
-  enforceCloudSettings();
+  enforceLocalSettings();
   syncTokenFromOpenDashboardTabs();
 });
 
 chrome.runtime.onStartup.addListener(() => {
-  enforceCloudSettings();
+  enforceLocalSettings();
   syncTokenFromOpenDashboardTabs();
 });
 

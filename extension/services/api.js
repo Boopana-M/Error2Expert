@@ -4,15 +4,15 @@
  * Dynamically resolves target backend URL from Chrome local storage.
  */
 
-export const DEFAULT_BACKEND_URL = 'https://error2expert-backend.onrender.com/api';
-export const DEFAULT_DASHBOARD_URL = 'https://error2expert-frontend.onrender.com';
+export const DEFAULT_BACKEND_URL = 'http://localhost:8080/api';
+export const DEFAULT_DASHBOARD_URL = 'http://localhost:5173';
 
 export async function getBackendUrl() {
   try {
     if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
       const res = await chrome.storage.local.get(['settings']);
       const url = res.settings?.backendUrl?.trim();
-      if (url && !url.includes('localhost') && !url.includes('127.0.0.1')) {
+      if (url) {
         return url.replace(/\/+$/, '');
       }
     }
@@ -27,7 +27,7 @@ export async function getDashboardUrl() {
     if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
       const res = await chrome.storage.local.get(['settings']);
       const url = res.settings?.dashboardUrl?.trim();
-      if (url && !url.includes('localhost') && !url.includes('127.0.0.1')) {
+      if (url) {
         return url.replace(/\/+$/, '');
       }
     }
