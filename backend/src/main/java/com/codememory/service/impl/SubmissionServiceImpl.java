@@ -72,8 +72,15 @@ public class SubmissionServiceImpl implements SubmissionService {
 
         Submission savedSubmission = submissionRepository.save(submission);
 
-        // 5. Adaptive Feedback Loop: If accepted, resolve recommendations and boost mastery
+        // 5. Adaptive Feedback Loop & Mistake Resolution:
         if (savedSubmission.getResult() == SubmissionResult.ACCEPTED) {
+            // Resolve open mistakes on this specific problem
+            resolveOpenMistakesForAcceptedProblem(user, problem, savedSubmission);
+
+            // Resolve cross-problem learning episodes on shared concepts
+            resolveConceptLearningEpisodes(user, problem, savedSubmission);
+
+            // Process solved problem feedback and boost concept mastery
             recommendationService.processSolvedProblemFeedback(user, problem);
         }
 
@@ -84,6 +91,40 @@ public class SubmissionServiceImpl implements SubmissionService {
         }
 
         return mapToResponse(savedSubmission, mistake);
+    }
+
+    private void resolveOpenMistakesForAcceptedProblem(User user, Problem problem, Submission acceptedSubmission) {
+        List<Mistake> openMistakes = mistakeRepository.findUnresolvedByUserIdAndProblemId(user.getId(), problem.getId());
+        if (!openMistakes.isEmpty()) {
+            LocalDateTime now = LocalDateTime.now();
+            for (Mistake m : openMistakes) {
+                m.setStatus(com.codememory.entity.enums.MistakeStatus.RESOLVED);
+                m.setResolvedBySubmission(acceptedSubmission);
+                m.setResolvedAt(now);
+                mistakeRepository.save(m);
+            }
+            log.info("Resolved {} open mistake(s) for user '{}' on problem '{}'", openMistakes.size(), user.getEmail(), problem.getTitle());
+        }
+    }
+
+    private void resolveConceptLearningEpisodes(User user, Problem problem, Submission acceptedSubmission) {
+        if (problem.getTopics() == null || problem.getTopics().isEmpty()) {
+            return;
+        }
+        LocalDateTime now = LocalDateTime.now();
+        for (String topic : problem.getTopics()) {
+            List<Mistake> openTopicMistakes = mistakeRepository.findUnresolvedByUserIdAndTopic(user.getId(), topic);
+            for (Mistake tm : openTopicMistakes) {
+                if (!tm.getSubmission().getProblem().getId().equals(problem.getId())) {
+                    tm.setStatus(com.codememory.entity.enums.MistakeStatus.RESOLVED);
+                    tm.setResolvedBySubmission(acceptedSubmission);
+                    tm.setResolvedAt(now);
+                    mistakeRepository.save(tm);
+                    log.info("Cross-problem learning resolution: mistake #{} in concept '{}' resolved by solving '{}'",
+                            tm.getId(), topic, problem.getTitle());
+                }
+            }
+        }
     }
 
     @Override
@@ -190,9 +231,17 @@ public class SubmissionServiceImpl implements SubmissionService {
                 ? mlResponse.getConfidence()
                 : 0.85;
 
+        // Determine whether this failure represents a recurrence of a previously resolved mistake
+        boolean wasPreviouslyResolved = mistakeRepository.hasPreviouslyResolvedCategory(
+                submission.getUser().getId(), category);
+        com.codememory.entity.enums.MistakeStatus status = wasPreviouslyResolved
+                ? com.codememory.entity.enums.MistakeStatus.RECURRING
+                : com.codememory.entity.enums.MistakeStatus.OPEN;
+
         Mistake mistake = Mistake.builder()
                 .submission(submission)
                 .category(category)
+                .status(status)
                 .userExplanation(userExplanation)
                 .aiExplanation(aiExplanation)
                 .confidence(confidence)
@@ -201,12 +250,12 @@ public class SubmissionServiceImpl implements SubmissionService {
         Mistake savedMistake = mistakeRepository.save(mistake);
 
         // Update Longitudinal Weakness Model for this user
-        updateWeaknessProfile(submission.getUser(), problem, category);
+        updateWeaknessProfile(submission.getUser(), problem, category, status);
 
         return savedMistake;
     }
 
-    private void updateWeaknessProfile(User user, Problem problem, MistakeCategory category) {
+    private void updateWeaknessProfile(User user, Problem problem, MistakeCategory category, com.codememory.entity.enums.MistakeStatus status) {
         String concept = (!problem.getTopics().isEmpty()) ? problem.getTopics().get(0) : problem.getTitle();
 
         Optional<Weakness> existingWeakness = weaknessRepository.findByUserIdAndConceptAndMistakeCategory(
@@ -220,7 +269,8 @@ public class SubmissionServiceImpl implements SubmissionService {
             weakness.setLastObserved(now);
             // Decay mastery score upon repeated mistake
             double currentMastery = (weakness.getMasteryScore() != null) ? weakness.getMasteryScore() : 100.0;
-            weakness.setMasteryScore(Math.max(10.0, currentMastery - 5.0));
+            double decay = (status == com.codememory.entity.enums.MistakeStatus.RECURRING) ? 7.5 : 5.0;
+            weakness.setMasteryScore(Math.max(10.0, currentMastery - decay));
             weakness.setConfidence(Math.min(0.98, (weakness.getConfidence() != null ? weakness.getConfidence() : 0.8) + 0.05));
             savedWeakness = weaknessRepository.save(weakness);
         } else {
@@ -237,8 +287,8 @@ public class SubmissionServiceImpl implements SubmissionService {
             savedWeakness = weaknessRepository.save(newWeakness);
         }
 
-        // Trigger targeted recommendation generation if recurring (frequency >= 2)
-        if (savedWeakness.getFrequency() >= 2) {
+        // Trigger targeted recommendation generation if recurring (frequency >= 2 or status == RECURRING)
+        if (savedWeakness.getFrequency() >= 2 || status == com.codememory.entity.enums.MistakeStatus.RECURRING) {
             recommendationService.generateRecommendationsForWeakness(savedWeakness);
         }
     }
@@ -249,6 +299,9 @@ public class SubmissionServiceImpl implements SubmissionService {
             mistakeResponse = MistakeResponse.builder()
                     .id(mistake.getId())
                     .category(mistake.getCategory())
+                    .status(mistake.getStatus())
+                    .resolvedBySubmissionId(mistake.getResolvedBySubmission() != null ? mistake.getResolvedBySubmission().getId() : null)
+                    .resolvedAt(mistake.getResolvedAt())
                     .userExplanation(mistake.getUserExplanation())
                     .aiExplanation(mistake.getAiExplanation())
                     .confidence(mistake.getConfidence())

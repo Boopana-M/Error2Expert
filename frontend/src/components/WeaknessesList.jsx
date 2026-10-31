@@ -1,18 +1,23 @@
 import React from 'react';
-import { ShieldAlert, AlertCircle, ArrowUpRight, Flame } from 'lucide-react';
+import { ShieldAlert, AlertCircle, ArrowUpRight, Flame, Award, CheckCircle2, TrendingUp } from 'lucide-react';
 
 export default function WeaknessesList({ weaknesses }) {
   const list = weaknesses || [];
 
-  const getSeverityBadge = (severity) => {
-    switch (severity?.toUpperCase()) {
-      case 'HIGH':
-        return <span className="badge badge-high"><Flame size={12} /> High Recurrence</span>;
-      case 'MEDIUM':
-        return <span className="badge badge-medium"><AlertCircle size={12} /> Medium</span>;
+  const getLearningStateBadge = (state, severity) => {
+    switch (state?.toUpperCase()) {
+      case 'MASTERED':
+        return <span className="badge badge-mastered"><Award size={12} /> Mastered</span>;
       case 'IMPROVING':
-      default:
         return <span className="badge badge-improving"><ArrowUpRight size={12} /> Improving</span>;
+      case 'RECURRING_WEAKNESS':
+        return <span className="badge badge-high"><Flame size={12} /> Recurring Weakness</span>;
+      case 'LEARNING_IN_PROGRESS':
+      default:
+        if (severity?.toUpperCase() === 'HIGH') {
+          return <span className="badge badge-high"><Flame size={12} /> Needs Practice</span>;
+        }
+        return <span className="badge badge-medium"><TrendingUp size={12} /> In Progress</span>;
     }
   };
 
@@ -20,69 +25,103 @@ export default function WeaknessesList({ weaknesses }) {
     <div className="glass-panel weaknesses-container">
       <div className="section-title-row">
         <div className="flex items-center gap-2">
-          <ShieldAlert size={20} className="text-rose" />
-          <h2 className="section-title">Longitudinal Weaknesses</h2>
+          <ShieldAlert size={20} className="text-cyan" />
+          <h2 className="section-title">Concept Learning & Recovery Monitor</h2>
         </div>
-        <span className="text-muted text-sm">Ranked by Cross-Problem Recurrence</span>
+        <span className="text-muted text-sm">Longitudinal Error-to-Mastery Tracking</span>
       </div>
 
       <p className="section-subtitle">
-        Patterns detected across multiple distinct problems using FAISS dense vector clustering.
+        Tracks whether coding mistakes are actively resolved or recurring across exercises.
       </p>
 
       {list.length === 0 ? (
         <div className="empty-state-box">
-          <ShieldAlert size={30} className="text-muted" style={{ opacity: 0.5, marginBottom: '8px' }} />
-          <div style={{ color: '#94a3b8', fontWeight: 500, fontSize: '0.9rem' }}>No recurring weaknesses detected</div>
+          <CheckCircle2 size={30} className="text-emerald" style={{ opacity: 0.7, marginBottom: '8px' }} />
+          <div style={{ color: '#94a3b8', fontWeight: 500, fontSize: '0.9rem' }}>No active conceptual hurdles detected</div>
           <p style={{ color: '#64748b', fontSize: '0.8rem', marginTop: '4px' }}>
-            As you practice and log attempts, Error2Expert's vector memory will identify repeated cross-problem weaknesses.
+            As you practice on LeetCode, Error2Expert tracks mistake resolution and rewards successful recoveries.
           </p>
         </div>
       ) : (
         <div className="weakness-cards-stack">
-          {list.map((item) => (
-            <div key={item.id} className="weakness-item-card">
-              <div className="weakness-header">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="weakness-concept-title">{item.concept}</h3>
-                    {getSeverityBadge(item.severity)}
+          {list.map((item) => {
+            const recoveryPct = item.recoveryRate != null ? item.recoveryRate : (item.resolvedCount && item.frequency ? Math.round((item.resolvedCount / item.frequency) * 100) : 0);
+            const isHighRecovery = recoveryPct >= 70;
+
+            return (
+              <div key={item.id} className="weakness-item-card">
+                <div className="weakness-header">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="weakness-concept-title">{item.concept}</h3>
+                      {getLearningStateBadge(item.learningState, item.severity)}
+                    </div>
+                    <div className="weakness-category-sub">{item.mistakeCategory}</div>
                   </div>
-                  <div className="weakness-category-sub">{item.mistakeCategory}</div>
+
+                  {/* Recovery Rate Gauge */}
+                  <div className="concept-recovery-stat">
+                    <div className="concept-recovery-header">
+                      <span className="text-xs text-muted">Recovery Rate:</span>
+                      <strong className={isHighRecovery ? "text-emerald" : recoveryPct >= 40 ? "text-amber" : "text-rose"}>
+                        {recoveryPct}%
+                      </strong>
+                    </div>
+                    <div className="concept-recovery-bar">
+                      <div 
+                        className="concept-recovery-fill" 
+                        style={{ 
+                          width: `${Math.min(100, Math.max(0, recoveryPct))}%`,
+                          background: isHighRecovery 
+                            ? 'linear-gradient(90deg, #10b981, #06b6d4)' 
+                            : recoveryPct >= 40 
+                              ? 'linear-gradient(90deg, #f59e0b, #10b981)' 
+                              : 'linear-gradient(90deg, #f43f5e, #f59e0b)'
+                        }}
+                      />
+                    </div>
+                    <div className="text-xs text-muted text-right mt-1">
+                      {item.resolvedCount || 0} Resolved / {item.frequency || 1} Total
+                    </div>
+                  </div>
                 </div>
-                <div className="weakness-stat-box">
-                  <div className="frequency-num">{item.frequency}x</div>
-                  <div className="text-muted text-xs">Occurrences</div>
+
+                {/* AI Learning Narrative */}
+                {item.learningNarrative && (
+                  <div className="concept-narrative-box">
+                    <p className="narrative-text">
+                      {item.learningNarrative}
+                    </p>
+                  </div>
+                )}
+
+                <div className="affected-problems-container">
+                  <span className="affected-label">Exercises:</span>
+                  <div className="problem-tags-row">
+                    {item.affectedProblems?.map((prob, i) => (
+                      <span key={i} className="problem-tag">
+                        {prob}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="weakness-footer">
+                  <div className="flex items-center gap-4 text-xs text-muted">
+                    <span>First Seen: <strong>{item.firstObserved ? item.firstObserved.substring(0, 10) : '—'}</strong></span>
+                    <span>Recent Attempt: <strong>{item.lastObserved ? item.lastObserved.substring(0, 10) : '—'}</strong></span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className="text-muted">Mastery Score:</span>
+                    <strong className={item.masteryScore > 75 ? 'text-emerald' : item.masteryScore > 50 ? 'text-amber' : 'text-rose'}>
+                      {Math.round(item.masteryScore || 0)}%
+                    </strong>
+                  </div>
                 </div>
               </div>
-
-              <p className="weakness-desc">{item.description}</p>
-
-              <div className="affected-problems-container">
-                <span className="affected-label">Identified in:</span>
-                <div className="problem-tags-row">
-                  {item.affectedProblems?.map((prob, i) => (
-                    <span key={i} className="problem-tag">
-                      {prob}
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              <div className="weakness-footer">
-                <div className="flex items-center gap-4 text-xs text-muted">
-                  <span>First: <strong>{item.firstObserved ? item.firstObserved.substring(0, 10) : '—'}</strong></span>
-                  <span>Latest: <strong>{item.lastObserved ? item.lastObserved.substring(0, 10) : '—'}</strong></span>
-                </div>
-                <div className="flex items-center gap-2 text-xs">
-                  <span className="text-muted">Concept Mastery:</span>
-                  <strong className={item.masteryScore > 75 ? 'text-emerald' : item.masteryScore > 50 ? 'text-amber' : 'text-rose'}>
-                    {item.masteryScore}%
-                  </strong>
-                </div>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

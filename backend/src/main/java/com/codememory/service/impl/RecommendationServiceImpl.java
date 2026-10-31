@@ -3,6 +3,7 @@ package com.codememory.service.impl;
 import com.codememory.config.SecurityUtils;
 import com.codememory.dto.RecommendationResponse;
 import com.codememory.dto.TodaysFocusResponse;
+import com.codememory.entity.Mistake;
 import com.codememory.entity.Problem;
 import com.codememory.entity.Recommendation;
 import com.codememory.entity.User;
@@ -10,6 +11,7 @@ import com.codememory.entity.Weakness;
 import com.codememory.entity.enums.RecommendationStatus;
 import com.codememory.entity.enums.SubmissionResult;
 import com.codememory.exception.ResourceNotFoundException;
+import com.codememory.repository.MistakeRepository;
 import com.codememory.repository.ProblemRepository;
 import com.codememory.repository.RecommendationRepository;
 import com.codememory.repository.SubmissionRepository;
@@ -31,6 +33,7 @@ public class RecommendationServiceImpl implements RecommendationService {
     private final ProblemRepository problemRepository;
     private final WeaknessRepository weaknessRepository;
     private final SubmissionRepository submissionRepository;
+    private final MistakeRepository mistakeRepository;
     private final SecurityUtils securityUtils;
 
     @Override
@@ -73,8 +76,14 @@ public class RecommendationServiceImpl implements RecommendationService {
                     .build();
         }
 
-        // Top recurring weakness for this authenticated user
-        Weakness topWeakness = weaknesses.get(0);
+        // Find top focus: prioritize weakness with active open mistakes
+        Weakness topWeakness = weaknesses.stream()
+                .filter(w -> {
+                    List<Mistake> mList = mistakeRepository.findByUserIdAndCategory(targetUserId, w.getMistakeCategory());
+                    return mList.stream().anyMatch(m -> m.getStatus() != com.codememory.entity.enums.MistakeStatus.RESOLVED);
+                })
+                .findFirst()
+                .orElse(weaknesses.get(0));
 
         List<RecommendationResponse> recommendedProblems = recommendationRepository
                 .findByUserIdAndStatus(targetUserId, RecommendationStatus.PENDING)
@@ -83,15 +92,22 @@ public class RecommendationServiceImpl implements RecommendationService {
                 .map(this::mapToResponse)
                 .toList();
 
-        String whyExplanation = String.format(
-                "You have made %d %s mistake%s across %s problems. Your current mastery is %.0f%%. " +
-                "Targeted practice is recommended to eliminate this specific failure mode.",
-                topWeakness.getFrequency(),
-                topWeakness.getMistakeCategory().name().replace('_', ' ').toLowerCase(),
-                topWeakness.getFrequency() > 1 ? "s" : "",
-                topWeakness.getConcept(),
-                topWeakness.getMasteryScore() != null ? topWeakness.getMasteryScore() : 50.0
-        );
+        List<Mistake> catMistakes = mistakeRepository.findByUserIdAndCategory(targetUserId, topWeakness.getMistakeCategory());
+        long resolved = catMistakes.stream().filter(m -> m.getStatus() == com.codememory.entity.enums.MistakeStatus.RESOLVED).count();
+        long total = catMistakes.size();
+        int recRate = total > 0 ? (int) Math.round(((double) resolved / total) * 100) : 100;
+        long openCount = total - resolved;
+
+        String whyExplanation;
+        if (total > 0 && openCount == 0) {
+            whyExplanation = String.format("All %d past %s mistakes in %s have been successfully resolved (100%% recovery). Mastery is robust at %.0f%%.",
+                    total, topWeakness.getMistakeCategory().name().replace('_', ' ').toLowerCase(), topWeakness.getConcept(),
+                    topWeakness.getMasteryScore() != null ? topWeakness.getMasteryScore() : 90.0);
+        } else {
+            whyExplanation = String.format("You have %d open mistake%s in %s (Recovery Rate: %d%%, Mastery: %.0f%%). Targeted practice is calibrated to overcome this specific failure mode.",
+                    openCount, openCount != 1 ? "s" : "", topWeakness.getConcept(), recRate,
+                    topWeakness.getMasteryScore() != null ? topWeakness.getMasteryScore() : 50.0);
+        }
 
         return TodaysFocusResponse.builder()
                 .weakness(topWeakness.getConcept())

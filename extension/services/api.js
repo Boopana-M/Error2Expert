@@ -4,15 +4,15 @@
  * Dynamically resolves target backend URL from Chrome local storage.
  */
 
-const DEFAULT_BACKEND_URL = 'https://error2expert-backend.onrender.com/api';
-const DEFAULT_DASHBOARD_URL = 'https://error2expert-frontend.onrender.com';
+export const DEFAULT_BACKEND_URL = 'https://error2expert-backend.onrender.com/api';
+export const DEFAULT_DASHBOARD_URL = 'https://error2expert-frontend.onrender.com';
 
 export async function getBackendUrl() {
   try {
     if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
       const res = await chrome.storage.local.get(['settings']);
-      if (res.settings && res.settings.backendUrl && !res.settings.backendUrl.includes('localhost') && !res.settings.backendUrl.includes('127.0.0.1')) {
-        return res.settings.backendUrl.replace(/\/+$/, '');
+      if (res.settings && res.settings.backendUrl && res.settings.backendUrl.trim()) {
+        return res.settings.backendUrl.trim().replace(/\/+$/, '');
       }
     }
   } catch (e) {
@@ -25,8 +25,8 @@ export async function getDashboardUrl() {
   try {
     if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
       const res = await chrome.storage.local.get(['settings']);
-      if (res.settings && res.settings.dashboardUrl && !res.settings.dashboardUrl.includes('localhost') && !res.settings.dashboardUrl.includes('127.0.0.1')) {
-        return res.settings.dashboardUrl.replace(/\/+$/, '');
+      if (res.settings && res.settings.dashboardUrl && res.settings.dashboardUrl.trim()) {
+        return res.settings.dashboardUrl.trim().replace(/\/+$/, '');
       }
     }
   } catch (e) {
@@ -51,21 +51,42 @@ export async function getAuthToken() {
   return null;
 }
 
+export async function getAuthUser() {
+  try {
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+      const res = await chrome.storage.local.get(['settings']);
+      return res.settings?.authUser || null;
+    }
+  } catch (e) {
+    console.warn('Error reading authUser from storage:', e);
+  }
+  return null;
+}
+
 export const ExtensionApi = {
   /**
-   * Posts submission and mistake explanation to Spring Boot backend
+   * Posts submission and mistake explanation to Spring Boot backend.
+   * Requires an authenticated JWT user token.
    */
   async submitAttempt(payload) {
     const baseUrl = await getBackendUrl();
     const token = await getAuthToken();
+
+    if (!token) {
+      console.warn('[Error2Expert API] No authentication token found.');
+      return {
+        success: false,
+        error: 'NO_AUTH_TOKEN',
+        message: 'No login token found. Please open or log in to the Error2Expert dashboard to sync your account.'
+      };
+    }
+
     try {
       const headers = {
         'Content-Type': 'application/json',
-        'Accept': 'application/json'
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${token}`
       };
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
 
       const response = await fetch(`${baseUrl}/submissions`, {
         method: 'POST',
@@ -74,36 +95,38 @@ export const ExtensionApi = {
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorBody = await response.text().catch(() => '');
+        console.error(`[Error2Expert API] HTTP ${response.status}:`, errorBody);
+        return {
+          success: false,
+          error: `HTTP_${response.status}`,
+          status: response.status,
+          message: response.status === 401 || response.status === 403
+            ? 'Authentication expired or invalid. Please open the dashboard to re-sync.'
+            : `Server returned error (${response.status}).`
+        };
       }
 
       const data = await response.json();
-      return { success: true, data };
+      return { success: true, data: data.data || data };
     } catch (error) {
       console.warn(`[Error2Expert API] Backend at ${baseUrl} unreachable:`, error);
-      // Return realistic mock response if backend is offline during browser testing
       return {
         success: false,
-        error: error.message,
-        simulated: {
-          mistakeCategory: payload.userExplanation?.toLowerCase().includes('bound') 
-            ? 'BOUNDARY_ERROR' 
-            : 'LOGIC_ERROR',
-          confidence: 0.89,
-          recurring: true
-        }
+        error: error.name === 'AbortError' ? 'TIMEOUT' : 'NETWORK_ERROR',
+        message: `Could not reach backend (${error.message}). Check connection.`
       };
     }
   },
 
   /**
-   * Health check for Spring Boot API
+   * Health check for Spring Boot API with generous timeout for server wake-up.
    */
   async checkHealth(customUrl = null) {
     const baseUrl = customUrl ? customUrl.replace(/\/+$/, '') : await getBackendUrl();
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 4000);
+      const timeoutId = setTimeout(() => controller.abort(), 12000);
       const res = await fetch(`${baseUrl}/health`, { 
         method: 'GET',
         signal: controller.signal
@@ -115,4 +138,3 @@ export const ExtensionApi = {
     }
   }
 };
-

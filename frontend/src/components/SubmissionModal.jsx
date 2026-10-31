@@ -108,16 +108,25 @@ export default function SubmissionModal({ isOpen, onClose, onSuccess }) {
 
           <div className="form-group">
             <label htmlFor="textarea-user-explanation" className="form-label">
-              Why do you think this failed? <span className="text-primary-light">(Crucial for AI ML model)</span>
+              {formData.result === 'ACCEPTED' ? (
+                <span className="text-emerald font-semibold">Solution Reflection / Fix Note (Optional)</span>
+              ) : (
+                <>Why do you think this failed? <span className="text-primary-light">(Crucial for AI ML model)</span></>
+              )}
             </label>
             <input
               id="textarea-user-explanation"
               type="text"
               className="form-input"
-              placeholder="e.g. I updated high = mid instead of high = mid - 1"
+              placeholder={formData.result === 'ACCEPTED' ? "e.g. Corrected boundary update using high = mid - 1" : "e.g. I updated high = mid instead of high = mid - 1"}
               value={formData.userExplanation}
               onChange={(e) => setFormData({ ...formData, userExplanation: e.target.value })}
             />
+            {formData.result === 'ACCEPTED' && (
+              <span className="text-xs text-emerald" style={{ marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <CheckCircle size={12} /> Logging an ACCEPTED solution automatically resolves open mistakes on this problem and boosts concept mastery!
+              </span>
+            )}
           </div>
 
           <div className="form-group">

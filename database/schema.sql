@@ -56,6 +56,9 @@ CREATE TABLE mistakes (
     id BIGSERIAL PRIMARY KEY,
     submission_id BIGINT NOT NULL REFERENCES submissions(id) ON DELETE CASCADE,
     category VARCHAR(60) NOT NULL,
+    status VARCHAR(30) NOT NULL DEFAULT 'OPEN',
+    resolved_by_submission_id BIGINT REFERENCES submissions(id) ON DELETE SET NULL,
+    resolved_at TIMESTAMP WITHOUT TIME ZONE,
     user_explanation TEXT,
     ai_explanation TEXT,
     confidence DOUBLE PRECISION,
@@ -64,6 +67,8 @@ CREATE TABLE mistakes (
 
 CREATE INDEX idx_mistakes_submission_id ON mistakes(submission_id);
 CREATE INDEX idx_mistakes_category ON mistakes(category);
+CREATE INDEX idx_mistakes_status ON mistakes(status);
+CREATE INDEX idx_mistakes_resolved_by ON mistakes(resolved_by_submission_id);
 
 -- 5. Weaknesses Table
 CREATE TABLE weaknesses (

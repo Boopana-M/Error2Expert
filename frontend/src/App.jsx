@@ -66,6 +66,12 @@ export default function App() {
   useEffect(() => {
     if (api.isAuthenticated()) {
       loadDashboardData();
+      const token = localStorage.getItem('codememory_token');
+      const user = api.getCurrentUser();
+      if (token) {
+        window.postMessage({ type: 'ERROR2EXPERT_AUTH_SYNC', token, user }, '*');
+        window.dispatchEvent(new CustomEvent('ERROR2EXPERT_AUTH_SYNC', { detail: { token, user } }));
+      }
     }
   }, [loadDashboardData]);
 
@@ -73,6 +79,11 @@ export default function App() {
     setCurrentUser(userData);
     setIsAuthOpen(false);
     loadDashboardData();
+    const token = localStorage.getItem('codememory_token');
+    if (token) {
+      window.postMessage({ type: 'ERROR2EXPERT_AUTH_SYNC', token, user: userData }, '*');
+      window.dispatchEvent(new CustomEvent('ERROR2EXPERT_AUTH_SYNC', { detail: { token, user: userData } }));
+    }
   };
 
   const handleLogout = () => {

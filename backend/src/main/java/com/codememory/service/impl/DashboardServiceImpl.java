@@ -47,6 +47,7 @@ public class DashboardServiceImpl implements DashboardService {
 
         List<Submission> userSubmissions = submissionRepository.findByUserIdOrderBySubmittedAtDesc(resolvedUserId);
         List<Weakness> userWeaknesses = weaknessRepository.findByUserIdOrderByFrequencyDesc(resolvedUserId);
+        List<Mistake> allUserMistakes = mistakeRepository.findByUserId(resolvedUserId);
 
         long problemsAttempted = userSubmissions.stream()
                 .map(s -> s.getProblem().getId())
@@ -59,44 +60,115 @@ public class DashboardServiceImpl implements DashboardService {
                 .distinct()
                 .count();
 
-        long totalMistakes = userSubmissions.stream()
-                .mapToLong(s -> mistakeRepository.findBySubmissionId(s.getId()).size())
-                .sum();
+        long totalMistakes = allUserMistakes.size();
+        long resolvedMistakes = allUserMistakes.stream()
+                .filter(m -> m.getStatus() == com.codememory.entity.enums.MistakeStatus.RESOLVED)
+                .count();
+        long openMistakes = totalMistakes - resolvedMistakes;
 
-        long recurringMistakes = userWeaknesses.stream()
-                .filter(w -> w.getFrequency() > 1)
-                .mapToLong(Weakness::getFrequency)
-                .sum();
+        long recurringMistakes = allUserMistakes.stream()
+                .filter(m -> m.getStatus() == com.codememory.entity.enums.MistakeStatus.RECURRING)
+                .count();
 
-        // Fresh user defaults: strict 0 and "—"
-        String weakestConcept = "—";
-        String strongestConcept = "—";
+        int recoveryRate = totalMistakes > 0
+                ? (int) Math.round(((double) resolvedMistakes / totalMistakes) * 100)
+                : 100;
+
+        // Smart Recency-Weighted Mastery Calculation
         int currentMastery = 0;
+        String strongestConcept = "—";
+        String weakestConcept = "—";
+        String learningVerdict;
 
-        if (!userWeaknesses.isEmpty()) {
-            weakestConcept = userWeaknesses.get(0).getConcept();
+        if (problemsAttempted > 0) {
+            // 1. Recency Decay Window over last 12 attempts
+            List<Submission> recentSubmissions = userSubmissions.stream().limit(12).toList();
+            double weightedScoreSum = 0.0;
+            double weightTotal = 0.0;
 
-            // Find concept with highest mastery score
-            strongestConcept = userWeaknesses.stream()
-                    .max(Comparator.comparingDouble(w -> w.getMasteryScore() != null ? w.getMasteryScore() : 50.0))
-                    .map(Weakness::getConcept)
-                    .orElse("—");
+            for (int i = 0; i < recentSubmissions.size(); i++) {
+                Submission sub = recentSubmissions.get(i);
+                // Exponential recency weight: recent index 0 has weight 1.0, 5th has 0.62, 11th has 0.43
+                double weight = 1.0 / (1.0 + 0.12 * i);
+                double attemptScore;
 
-            double avgMastery = userWeaknesses.stream()
-                    .mapToDouble(w -> w.getMasteryScore() != null ? w.getMasteryScore() : 50.0)
-                    .average()
-                    .orElse(0.0);
-            currentMastery = (int) Math.round(avgMastery);
-        } else if (problemsAttempted > 0) {
-            // User attempted problems but has no recurring weaknesses yet
-            if (problemsAccepted > 0) {
-                currentMastery = (int) Math.round(((double) problemsAccepted / problemsAttempted) * 100);
+                if (sub.getResult() == SubmissionResult.ACCEPTED) {
+                    attemptScore = 100.0;
+                } else {
+                    // Check if mistake on this submission was resolved by a subsequent accepted solution
+                    List<Mistake> subMistakes = mistakeRepository.findBySubmissionId(sub.getId());
+                    boolean wasOvercome = !subMistakes.isEmpty() && subMistakes.stream()
+                            .allMatch(m -> m.getStatus() == com.codememory.entity.enums.MistakeStatus.RESOLVED);
+
+                    // If resolved: 75 points (growth mindset: error was acknowledged, learned, and overcome!)
+                    // If still open/recurring: 25 points
+                    attemptScore = wasOvercome ? 75.0 : 25.0;
+                }
+
+                weightedScoreSum += attemptScore * weight;
+                weightTotal += weight;
+            }
+
+            double recentScore = weightTotal > 0 ? (weightedScoreSum / weightTotal) : 0.0;
+
+            // 2. Blend with concept baseline if weaknesses exist
+            if (!userWeaknesses.isEmpty()) {
+                double avgConceptScore = userWeaknesses.stream()
+                        .mapToDouble(w -> w.getMasteryScore() != null ? w.getMasteryScore() : 50.0)
+                        .average()
+                        .orElse(50.0);
+                // 65% recent performance trajectory + 35% conceptual mastery foundation
+                currentMastery = (int) Math.round(recentScore * 0.65 + avgConceptScore * 0.35);
+            } else {
+                currentMastery = (int) Math.round(recentScore);
+            }
+
+            // Bound score cleanly between 10 and 100
+            currentMastery = Math.min(100, Math.max(10, currentMastery));
+
+            // Strongest Concept
+            if (!userWeaknesses.isEmpty()) {
+                strongestConcept = userWeaknesses.stream()
+                        .max(Comparator.comparingDouble(w -> w.getMasteryScore() != null ? w.getMasteryScore() : 50.0))
+                        .map(Weakness::getConcept)
+                        .orElse("—");
+            } else {
                 strongestConcept = userSubmissions.stream()
                         .filter(s -> s.getResult() == SubmissionResult.ACCEPTED)
                         .findFirst()
                         .map(s -> !s.getProblem().getTopics().isEmpty() ? s.getProblem().getTopics().get(0) : s.getProblem().getTitle())
                         .orElse("—");
             }
+
+            // Identify active focus concept (only consider concepts with ACTIVE open mistakes)
+            Optional<Weakness> activeFocus = userWeaknesses.stream()
+                    .filter(w -> {
+                        List<Mistake> mList = mistakeRepository.findByUserIdAndCategory(resolvedUserId, w.getMistakeCategory());
+                        return mList.stream().anyMatch(m -> m.getStatus() != com.codememory.entity.enums.MistakeStatus.RESOLVED);
+                    })
+                    .min(Comparator.comparingDouble(w -> w.getMasteryScore() != null ? w.getMasteryScore() : 50.0));
+
+            if (activeFocus.isPresent()) {
+                weakestConcept = activeFocus.get().getConcept();
+            } else if (totalMistakes > 0 && openMistakes == 0) {
+                weakestConcept = "All Resolved ✓";
+            } else {
+                weakestConcept = "None";
+            }
+        }
+
+        // Generate longitudinal learning verdict
+        if (problemsAttempted == 0) {
+            learningVerdict = "Awaiting problem attempts to detect cognitive learning patterns.";
+        } else if (totalMistakes == 0) {
+            learningVerdict = "Consistently clean implementations. No algorithmic failure patterns detected.";
+        } else if (recoveryRate >= 75) {
+            learningVerdict = String.format("🌟 %d%% Recovery Rate — Excellent learning velocity. You actively eliminate identified failure modes.", recoveryRate);
+        } else if (recoveryRate >= 45) {
+            learningVerdict = String.format("📈 %d%% Recovery Rate — Steady improvement. Resolving previous algorithmic hurdles.", recoveryRate);
+        } else {
+            learningVerdict = String.format("⚠️ %d%% Recovery Rate — %d open mistake%s require deliberate practice.",
+                    recoveryRate, openMistakes, openMistakes > 1 ? "s" : "");
         }
 
         return DashboardSummaryResponse.builder()
@@ -104,6 +176,10 @@ public class DashboardServiceImpl implements DashboardService {
                 .problemsAccepted(problemsAccepted)
                 .totalMistakes(totalMistakes)
                 .recurringMistakes(recurringMistakes)
+                .resolvedMistakes(resolvedMistakes)
+                .openMistakes(openMistakes)
+                .recoveryRate(recoveryRate)
+                .learningVerdict(learningVerdict)
                 .strongestConcept(strongestConcept)
                 .weakestConcept(weakestConcept)
                 .currentMastery(currentMastery)

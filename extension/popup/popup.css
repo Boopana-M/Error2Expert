@@ -450,7 +450,117 @@ textarea:focus {
   color: var(--emerald);
 }
 
+/* Account Status Bar */
+.account-status-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  font-size: 11px;
+  transition: all 0.2s;
+}
+
+.account-status-bar.connected {
+  border-color: rgba(16, 185, 129, 0.35);
+  background: rgba(16, 185, 129, 0.08);
+}
+
+.account-status-bar.disconnected {
+  border-color: rgba(245, 158, 11, 0.35);
+  background: rgba(245, 158, 11, 0.08);
+}
+
+.account-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+}
+
+.account-status-bar.connected .account-info {
+  color: #34d399;
+}
+
+.account-status-bar.disconnected .account-info {
+  color: #fbbf24;
+}
+
+.account-status-bar .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-muted);
+}
+
+.account-status-bar.connected .dot {
+  background: var(--emerald);
+  box-shadow: 0 0 6px var(--emerald);
+}
+
+.account-status-bar.disconnected .dot {
+  background: var(--amber);
+  box-shadow: 0 0 6px var(--amber);
+}
+
+.btn-sync-token {
+  background: rgba(99, 102, 241, 0.2);
+  border: 1px solid rgba(99, 102, 241, 0.4);
+  color: #c7d2fe;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-sync-token:hover {
+  background: rgba(99, 102, 241, 0.45);
+  color: #ffffff;
+}
+
+/* Cloud Save Tag */
+.cloud-save-tag {
+  font-size: 10px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.cloud-save-tag.pending {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+/* Notice Banner */
+.status-banner-error {
+  background: rgba(244, 63, 94, 0.12);
+  border: 1px solid rgba(244, 63, 94, 0.4);
+  color: #fca5a5;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.status-banner-error.hidden {
+  display: none;
+}
+
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: translateY(0); }
 }
+

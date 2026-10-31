@@ -1,6 +1,7 @@
 package com.codememory.entity;
 
 import com.codememory.entity.enums.MistakeCategory;
+import com.codememory.entity.enums.MistakeStatus;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -14,7 +15,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@ToString(exclude = {"submission"})
+@ToString(exclude = {"submission", "resolvedBySubmission"})
 public class Mistake {
 
     @Id
@@ -28,6 +29,18 @@ public class Mistake {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 60)
     private MistakeCategory category;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 30)
+    @Builder.Default
+    private MistakeStatus status = MistakeStatus.OPEN;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "resolved_by_submission_id")
+    private Submission resolvedBySubmission;
+
+    @Column(name = "resolved_at")
+    private LocalDateTime resolvedAt;
 
     @Column(name = "user_explanation", columnDefinition = "TEXT")
     private String userExplanation;

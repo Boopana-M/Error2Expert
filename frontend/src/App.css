@@ -788,3 +788,124 @@
   animation: fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+/* --- Learning Lifecycle & Recovery UI (Dark Mode) --- */
+.overview-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.recovery-card {
+  background: linear-gradient(145deg, rgba(6, 78, 59, 0.35) 0%, rgba(15, 23, 42, 0.85) 100%);
+  border-color: rgba(16, 185, 129, 0.28);
+}
+
+.recovery-val {
+  font-size: 2.4rem;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+.recovery-bar-fill {
+  height: 100%;
+  border-radius: 9999px;
+  transition: width 0.9s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 0 14px rgba(16, 185, 129, 0.45);
+}
+
+.learning-verdict-banner {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 20px;
+  background: linear-gradient(90deg, rgba(16, 24, 39, 0.85) 0%, rgba(30, 27, 75, 0.5) 100%);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.verdict-icon-glow {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: rgba(99, 102, 241, 0.15);
+  border: 1px solid rgba(99, 102, 241, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.verdict-text-box {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.verdict-badge {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--primary-light);
+}
+
+.verdict-sentence {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #f1f5f9;
+  letter-spacing: -0.01em;
+}
+
+/* Concept Recovery Monitor styles */
+.concept-recovery-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  min-width: 140px;
+}
+
+.concept-recovery-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.concept-recovery-bar {
+  width: 120px;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 9999px;
+  overflow: hidden;
+}
+
+.concept-recovery-fill {
+  height: 100%;
+  border-radius: 9999px;
+  transition: width 0.8s ease-in-out;
+}
+
+.concept-narrative-box {
+  background: rgba(15, 23, 42, 0.6);
+  border-left: 3px solid var(--primary-light);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  padding: 8px 12px;
+  margin: 2px 0 6px 0;
+}
+
+.narrative-text {
+  font-size: 0.8rem;
+  color: #cbd5e1;
+  line-height: 1.45;
+  font-style: italic;
+}
+
+.badge-mastered {
+  background: rgba(6, 182, 212, 0.18);
+  color: #22d3ee;
+  border: 1px solid rgba(6, 182, 212, 0.4);
+}
+
+

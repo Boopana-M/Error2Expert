@@ -64,8 +64,9 @@ public class WeaknessServiceImpl implements WeaknessService {
         }
 
         // Find affected problem titles strictly for this user and category
-        List<String> affectedProblems = mistakeRepository.findByUserIdAndCategory(w.getUser().getId(), w.getMistakeCategory())
-                .stream()
+        List<Mistake> categoryMistakes = mistakeRepository.findByUserIdAndCategory(w.getUser().getId(), w.getMistakeCategory());
+
+        List<String> affectedProblems = categoryMistakes.stream()
                 .map(m -> m.getSubmission().getProblem().getTitle())
                 .distinct()
                 .limit(4)
@@ -75,9 +76,39 @@ public class WeaknessServiceImpl implements WeaknessService {
             affectedProblems = List.of(w.getConcept() + " Problem");
         }
 
-        String description = String.format("Repeated %s mistake pattern identified across %s exercises.",
-                w.getMistakeCategory().name().replace('_', ' ').toLowerCase(),
-                w.getConcept());
+        int totalCategoryMistakes = categoryMistakes.size();
+        int resolvedCount = (int) categoryMistakes.stream()
+                .filter(m -> m.getStatus() == com.codememory.entity.enums.MistakeStatus.RESOLVED)
+                .count();
+        int openCount = totalCategoryMistakes - resolvedCount;
+
+        int recoveryRate = totalCategoryMistakes > 0
+                ? (int) Math.round(((double) resolvedCount / totalCategoryMistakes) * 100)
+                : 100;
+
+        String categoryName = w.getMistakeCategory().name().replace('_', ' ').toLowerCase();
+        String learningState;
+        String learningNarrative;
+
+        if (totalCategoryMistakes == 0 || (recoveryRate >= 70 && score >= 75.0)) {
+            learningState = "IMPROVING";
+            learningNarrative = String.format("Improving — You previously encountered %s errors in %s, but successfully corrected them in recent attempts (%d%% recovery).",
+                    categoryName, w.getConcept(), recoveryRate);
+        } else if (score >= 85.0 && openCount == 0) {
+            learningState = "MASTERED";
+            learningNarrative = String.format("Mastered — High algorithmic consistency across %s with all past failure modes resolved.", w.getConcept());
+        } else if (w.getFrequency() >= 3 && recoveryRate < 45) {
+            learningState = "RECURRING_WEAKNESS";
+            learningNarrative = String.format("Recurring Weakness — %s errors repeat across %s with a %d%% recovery rate. Targeted practice recommended.",
+                    categoryName, w.getConcept(), recoveryRate);
+        } else {
+            learningState = "LEARNING_IN_PROGRESS";
+            learningNarrative = String.format("Learning in Progress — Actively resolving %s in %s (%d resolved, %d pending).",
+                    categoryName, w.getConcept(), resolvedCount, openCount);
+        }
+
+        String description = String.format("Mistake pattern: %s in %s (%d occurrences, %d resolved).",
+                categoryName, w.getConcept(), w.getFrequency(), resolvedCount);
 
         return WeaknessResponse.builder()
                 .id(w.getId())
@@ -87,6 +118,11 @@ public class WeaknessServiceImpl implements WeaknessService {
                 .frequency(w.getFrequency())
                 .confidence(w.getConfidence() != null ? w.getConfidence() : 0.85)
                 .masteryScore(score)
+                .resolvedCount(resolvedCount)
+                .openCount(openCount)
+                .recoveryRate(recoveryRate)
+                .learningState(learningState)
+                .learningNarrative(learningNarrative)
                 .firstObserved(w.getFirstObserved())
                 .lastObserved(w.getLastObserved())
                 .description(description)

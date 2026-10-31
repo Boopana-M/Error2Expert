@@ -6,10 +6,13 @@
   "permissions": [
     "storage",
     "activeTab",
-    "scripting"
+    "scripting",
+    "tabs"
   ],
   "host_permissions": [
     "https://leetcode.com/*",
+    "https://error2expert-backend.onrender.com/*",
+    "https://error2expert-frontend.onrender.com/*",
     "http://localhost:8080/*",
     "http://127.0.0.1:8080/*",
     "http://localhost:3000/*",
@@ -18,7 +21,7 @@
   ],
   "action": {
     "default_popup": "popup/popup.html",
-    "default_title": "CodeMemory Mistake Analyzer",
+    "default_title": "Error2Expert Mistake Analyzer",
     "default_icon": {
       "16": "icons/icon16.png",
       "48": "icons/icon48.png",
@@ -37,6 +40,17 @@
       "js": [
         "utils/parser.js",
         "content.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://error2expert-frontend.onrender.com/*",
+        "http://localhost:5173/*",
+        "http://localhost:3000/*"
+      ],
+      "js": [
+        "dashboard-bridge.js"
       ],
       "run_at": "document_idle"
     }

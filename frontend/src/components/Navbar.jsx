@@ -1,8 +1,20 @@
-import React from 'react';
-import { Brain, Cpu, Database, PlusCircle, LogOut, LogIn, User, RotateCcw, Download } from 'lucide-react';
+import React, { useState } from 'react';
+import { Brain, Cpu, Database, PlusCircle, LogOut, LogIn, User, RotateCcw, Download, Key } from 'lucide-react';
 
 export default function Navbar({ user, onLogout, onResetDashboard, onOpenAuthModal, onOpenSubmissionModal }) {
   const initial = user?.name ? user.name.charAt(0).toUpperCase() : '?';
+  const [syncStatus, setSyncStatus] = useState(false);
+
+  const handleSyncExtension = () => {
+    const token = localStorage.getItem('codememory_token');
+    if (token) {
+      window.postMessage({ type: 'ERROR2EXPERT_AUTH_SYNC', token, user }, '*');
+      window.dispatchEvent(new CustomEvent('ERROR2EXPERT_AUTH_SYNC', { detail: { token, user } }));
+      navigator.clipboard?.writeText(token);
+      setSyncStatus(true);
+      setTimeout(() => setSyncStatus(false), 3000);
+    }
+  };
 
   return (
     <header className="navbar-container">
@@ -27,6 +39,24 @@ export default function Navbar({ user, onLogout, onResetDashboard, onOpenAuthMod
           <Download size={14} />
           <span>Get Extension</span>
         </a>
+
+        {user && (
+          <button
+            onClick={handleSyncExtension}
+            className="btn-secondary btn-sm"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              color: syncStatus ? '#34d399' : '#a855f7',
+              borderColor: syncStatus ? 'rgba(52, 211, 153, 0.4)' : 'rgba(168, 85, 247, 0.3)'
+            }}
+            title="Click to sync JWT token with Error2Expert Chrome Extension or copy to clipboard"
+          >
+            <Key size={14} />
+            <span>{syncStatus ? 'Token Copied & Synced ✓' : 'Sync Extension'}</span>
+          </button>
+        )}
 
         <div className="engine-status" title="FAISS FlatIP L2 Unit-Vector Memory">
           <Database size={15} className="status-icon-purple" />

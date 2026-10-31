@@ -21,6 +21,11 @@ public class WeaknessResponse {
     private Integer frequency;
     private Double confidence;
     private Double masteryScore;
+    private Integer resolvedCount;
+    private Integer openCount;
+    private Integer recoveryRate;
+    private String learningState; // "IMPROVING", "MASTERED", "RECURRING_WEAKNESS", "LEARNING_IN_PROGRESS"
+    private String learningNarrative;
     private LocalDateTime firstObserved;
     private LocalDateTime lastObserved;
     private String description;

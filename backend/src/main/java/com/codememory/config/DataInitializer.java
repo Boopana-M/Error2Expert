@@ -2,6 +2,7 @@ package com.codememory.config;
 
 import com.codememory.entity.Problem;
 import com.codememory.entity.Submission;
+import com.codememory.entity.Weakness;
 import com.codememory.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

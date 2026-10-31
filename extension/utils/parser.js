@@ -32,7 +32,7 @@ window.CodeMemoryParser = {
     const bodyText = document.body.innerText;
     const diffEl = document.querySelector('div[class*="text-difficulty-"]')
       || document.querySelector('span[class*="text-difficulty-"]')
-      || document.querySelector('[class*="text-olive"]'); // Easy on some LeetCode variants
+      || document.querySelector('[class*="text-olive"]');
 
     if (diffEl) {
       const diffText = diffEl.textContent.trim().toUpperCase();
@@ -83,15 +83,72 @@ window.CodeMemoryParser = {
   },
 
   /**
-   * Normalizes raw LeetCode result string to enum
+   * Scans the active LeetCode page for a legitimate submission verdict.
+   * Returns normalized enum ('ACCEPTED', 'WRONG_ANSWER', etc.) or null if no active submission verdict is visible.
+   */
+  detectLiveVerdict() {
+    // 1. Primary LeetCode data-e2e locator
+    const e2eEl = document.querySelector('[data-e2e-locator="submission-result"]');
+    if (e2eEl && e2eEl.textContent.trim()) {
+      const normalized = this.normalizeResult(e2eEl.textContent.trim());
+      if (normalized) return normalized;
+    }
+
+    // 2. Targeted search inside verdict headers and tab labels
+    const candidateSelectors = [
+      'div[data-e2e-locator="submission-result"]',
+      'span[data-e2e-locator="submission-result"]',
+      '[class*="result-status"]',
+      '[class*="status-column"]',
+      'div[class*="text-red-"]',
+      'div[class*="text-green-"]',
+      'div[class*="text-yellow-"]',
+      'span[class*="text-red-"]',
+      'span[class*="text-green-"]',
+      'span[class*="text-yellow-"]',
+      'div[class*="text-sd-"]',
+      'span[class*="text-sd-"]'
+    ];
+
+    for (const sel of candidateSelectors) {
+      const elements = document.querySelectorAll(sel);
+      for (const el of elements) {
+        const txt = (el.textContent || '').trim();
+        const upper = txt.toUpperCase();
+
+        // Must strictly match verdict text, NOT testcase counts or tab titles
+        if (upper === 'ACCEPTED' || upper.startsWith('ACCEPTED ')) return 'ACCEPTED';
+        if (upper === 'WRONG ANSWER' || upper.startsWith('WRONG ANSWER ')) return 'WRONG_ANSWER';
+        if (upper === 'TIME LIMIT EXCEEDED' || upper.startsWith('TIME LIMIT EXCEEDED ') || upper.startsWith('TLE')) return 'TIME_LIMIT_EXCEEDED';
+        if (upper === 'RUNTIME ERROR' || upper.startsWith('RUNTIME ERROR ')) return 'RUNTIME_ERROR';
+        if (upper === 'COMPILE ERROR' || upper.startsWith('COMPILE ERROR ')) return 'COMPILE_ERROR';
+        if (upper === 'MEMORY LIMIT EXCEEDED' || upper.startsWith('MEMORY LIMIT EXCEEDED ')) return 'MEMORY_LIMIT_EXCEEDED';
+      }
+    }
+
+    return null;
+  },
+
+  /**
+   * Normalizes raw LeetCode result string to enum.
+   * Returns null if text does not represent a genuine verdict.
    */
   normalizeResult(rawText) {
-    if (!rawText) return 'WRONG_ANSWER';
-    const text = rawText.toUpperCase();
-    if (text.includes('ACCEPTED')) return 'ACCEPTED';
+    if (!rawText) return null;
+    const text = rawText.trim().toUpperCase();
+
+    // Check failure modes first
+    if (text.includes('WRONG ANSWER')) return 'WRONG_ANSWER';
     if (text.includes('TIME LIMIT') || text.includes('TLE')) return 'TIME_LIMIT_EXCEEDED';
     if (text.includes('RUNTIME ERROR')) return 'RUNTIME_ERROR';
     if (text.includes('COMPILE ERROR')) return 'COMPILE_ERROR';
-    return 'WRONG_ANSWER';
+    if (text.includes('MEMORY LIMIT')) return 'MEMORY_LIMIT_EXCEEDED';
+
+    // Check Accepted (strict: must start with or equal ACCEPTED to prevent matching random text)
+    if (text === 'ACCEPTED' || text.startsWith('ACCEPTED ') || text.includes('ACCEPTED (')) {
+      return 'ACCEPTED';
+    }
+
+    return null;
   }
 };
